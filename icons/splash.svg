@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1242 2688">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0a0907"/>
+      <stop offset="0.45" stop-color="#0b0a08"/>
+      <stop offset="1" stop-color="#0a0907"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="-0.08" r="0.9">
+      <stop offset="0" stop-color="rgba(255,215,120,0.18)"/>
+      <stop offset="1" stop-color="rgba(255,215,120,0)"/>
+    </radialGradient>
+    <linearGradient id="pillL" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#E7C65A"/><stop offset="1" stop-color="#B9983F"/>
+    </linearGradient>
+    <linearGradient id="pillR" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#00D1FF"/><stop offset="1" stop-color="#6EE7FF"/>
+    </linearGradient>
+  </defs>
+  <rect width="1242" height="2688" fill="url(#bg)"/>
+  <ellipse cx="621" cy="-80" rx="900" ry="700" fill="url(#glow)"/>
+  <!-- rings -->
+  <g fill="none" stroke-linecap="round">
+    <circle cx="621" cy="1344" r="520" stroke="#00D1FF" stroke-opacity="0.66" stroke-width="20"/>
+    <circle cx="621" cy="1344" r="460" stroke="#E7C65A" stroke-opacity="0.66" stroke-width="20"/>
+  </g>
+  <!-- dual pill -->
+  <g transform="translate(0,40)">
+    <rect x="421" y="1260" rx="48" ry="48" width="200" height="96" fill="url(#pillL)" />
+    <rect x="621" y="1260" rx="48" ry="48" width="200" height="96" fill="url(#pillR)" />
+  </g>
+</svg>
