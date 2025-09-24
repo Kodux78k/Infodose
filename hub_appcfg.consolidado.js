@@ -491,7 +491,6 @@
       const greet = 'Oi Dual';
       showArchMessage(greet, 'ok');
       try { speakWithActiveArch(greet); } catch {}
-      try { window.playSFXForActiveArch && playSFXForActiveArch(); } catch {}
       // Após a saudação, aguarde um curto intervalo antes de iniciar a verificação
       setTimeout(() => {
         const sk = localStorage.getItem('dual.keys.openrouter') || '';
@@ -651,7 +650,33 @@
      * @param {string} model Identificador do modelo
      * @returns {Promise<string>} Resposta do modelo
      */
-    
+    async function sendAIMessage(content, sk, model) {
+      // Estrutura de payload conforme especificação do OpenRouter
+      const payload = {
+        model: model,
+        messages: [
+          { role: 'system', content: 'Você é um assistente amistoso que responde em português.' },
+          { role: 'user', content: content }
+        ],
+        max_tokens: 200,
+        temperature: 0.7
+      };
+      const url = 'https://openrouter.ai/api/v1/chat/completions';
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${sk}`
+        },
+        body: JSON.stringify(payload)
+      });
+      if(!res.ok) {
+        throw new Error('Erro na API: ' + res.status);
+      }
+      const data = await res.json();
+      const reply = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+      return reply || '';
+    }
 
     // Delegue cliques dentro do menu para a função de navegação.
     document.addEventListener('DOMContentLoaded', () => {
@@ -1375,7 +1400,6 @@ feedPush('status', '⚡ Pulso enviado · recebendo intenção…');
         try {
           const base = file.replace(/\.html$/i, '');
           speakArchetype(base);
-          try{ window.playSFXForArch && playSFXForArch(base); }catch(e){}
         } catch (e) {}
         // Atualiza as informações da Home (cartões) quando o arquétipo muda
         try {
@@ -2927,250 +2951,4 @@ async function dualFetch(url, options={}, timeoutMs=20000){
     }
     console.warn('[PWA] Resiliente: nenhuma URL de SW funcionou');
   });
-})();
-
-
-
-/* ========= Soundpacks (VOZ) Panel for Archetypes — UNO Brain ========= */
-(function(){
-  const $ = (q,r=document)=>r.querySelector(q);
-  const $$= (q,r=document)=>Array.from(r.querySelectorAll(q));
-  const LS = {
-    get:(k,d)=>{ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):d }catch(e){ return d } },
-    set:(k,v)=>{ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
-  };
-
-  // Canonical storage key
-  const KEY = 'infodose:archSFX'; // { ATLAS: { sfx: DataURL, label, type }, ... }
-
-  // Archetype normalization: maps file-based names to canonical labels shown in UNO
-  const ARCH_KEYS = [
-    'AION','ARTEMIS','ATLAS','GENUS','KAOS','LUMINE','NOVA','PULSE','RHEA','SERENA','SOLUS','VITALIS',
-    // extra variants present in UNO selector or ecosystem
-    'HORUS','LUXARA','KAION','ELYSHA'
-  ];
-  const alias = {
-    'ATLAS':'ATLAS','atlas':'ATLAS',
-    'NOVA':'NOVA','nova':'NOVA',
-    'VITALIS':'VITALIS','vitalis':'VITALIS',
-    'PULSE':'PULSE','pulse':'PULSE',
-    'ARTEMIS':'ARTEMIS','artemis':'ARTEMIS',
-    'SERENA':'SERENA','serena':'SERENA',
-    'KAOS':'KAOS','kaos':'KAOS',
-    'GENUS':'GENUS','genus':'GENUS',
-    'LUMINE':'LUMINE','lumine':'LUMINE',
-    'RHEA':'RHEA','rhea':'RHEA',
-    'SOLUS':'SOLUS','solus':'SOLUS',
-    'AION':'AION','aion':'AION',
-    'HORUS':'HORUS','horus':'HORUS',
-    'LUXARA':'LUXARA','luxara':'LUXARA',
-    'KAION':'KAION','kaion':'KAION',
-    'ELYSHA':'ELYSHA','elysha':'ELYSHA'
-  };
-  function normArch(s){
-    if(!s) return '';
-    const t = String(s).replace(/\.(wav|mp3|m4a|ogg|flac|html)$/i,'').replace(/[_\-].*$/,'').trim();
-    return alias[t] || alias[String(s).trim()] || alias[String(s).toUpperCase()] || '';
-  }
-
-  // Save & load
-  function loadMap(){ return LS.get(KEY, {}) || {}; }
-  function saveMap(m){ LS.set(KEY, m || {}); }
-  function assign(arch, dataURL, label, mime){
-    if(!arch) return;
-    const map = loadMap();
-    map[arch] = { sfx: dataURL, label: label||arch, type: mime||'audio/wav' };
-    saveMap(map);
-  }
-
-  // Playback
-  let __sfxAudio = null;
-  function playDataURL(dataURL){
-    try{
-      if(__sfxAudio){ __sfxAudio.pause(); __sfxAudio = null; }
-      const a = new Audio();
-      a.src = dataURL;
-      a.volume = 0.9;
-      a.play().catch(()=>{});
-      __sfxAudio = a;
-    }catch(e){}
-  }
-  window.playSFXForArch = function(nameOrArch){
-    try{
-      const key = normArch(nameOrArch) || (String(nameOrArch||'').toUpperCase());
-      const m = loadMap();
-      const k = m[key] ? key : (Object.keys(m).find(k => k.toLowerCase() === String(nameOrArch||'').toLowerCase()) || '');
-      if(k && m[k] && m[k].sfx){
-        playDataURL(m[k].sfx);
-      }
-    }catch(e){}
-  };
-  window.playSFXForActiveArch = function(){
-    try{
-      const sel = document.getElementById('arch-select');
-      if(!sel || !sel.value) return;
-      const base = sel.value.replace(/\.html$/i,'');
-      playSFXForArch(base);
-    }catch(e){}
-  };
-
-  // Import helpers
-  async function fileToDataURL(file){
-    const buf = await file.arrayBuffer();
-    const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
-    return `data:${file.type||'audio/wav'};base64,${b64}`;
-  }
-
-  async function importFiles(files){
-    const map = loadMap();
-    let count = 0;
-    for(const f of files){
-      const name = (f && f.name) || '';
-      const ext  = name.split('.').pop().toLowerCase();
-      if(!/^(wav|mp3|m4a|ogg|flac)$/.test(ext)) continue;
-      // Prefer names like ATLAS.wav or ATLAS_*.wav / *_atlas_eq.wav etc.
-      let arch = '';
-      // Try direct prefix
-      const m1 = name.match(/^([A-Za-z]+)[._-]?/);
-      if(m1) arch = normArch(m1[1]);
-      // Try suffixed pattern *_atlas_eq.wav
-      if(!arch){
-        const m2 = name.match(/([A-Za-z]+)[._-](?:atlas_eq|bright|dark|warm)/i);
-        if(m2) arch = normArch(m2[1]);
-      }
-      // Try parent folder as archetype (e.g., custom/ATLAS.wav)
-      if(!arch && f.webkitRelativePath){
-        const segs = f.webkitRelativePath.split('/').filter(Boolean);
-        const guess = segs.find(s => alias[s] || alias[s.toUpperCase()]);
-        if(guess) arch = normArch(guess);
-      }
-      if(!arch) continue;
-      // Convert to DataURL (beware of storage size; keep just SFX per arch)
-      const url = await fileToDataURL(f);
-      map[arch] = { sfx: url, label: name, type: f.type||'audio/wav' };
-      count++;
-    }
-    saveMap(map);
-    return count;
-  }
-
-  function bytesOfLS(){
-    let t=0;
-    try{ for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); const v=localStorage.getItem(k)||''; t += (k.length + v.length)*2; } }catch(e){}
-    return t;
-  }
-  function fmtBytes(n){ const u=['B','KB','MB','GB']; let i=0; let x=n; while(x>=1024&&i<u.length-1){x/=1024;i++} return (x>=10?x.toFixed(0):x.toFixed(1))+' '+u[i]; }
-
-  // UI
-  function mountPanel(){
-    const grid = document.querySelector('#v-brain .grid');
-    if(!grid) return;
-    // Create card container
-    const card = document.createElement('div');
-    card.className = 'card fx-trans fx-lift';
-    card.style.display = 'block';
-    card.id = 'soundpacksCard';
-    card.innerHTML = `
-      <div style="font-weight:800; margin-bottom:6px">Soundpacks · Voz / SFX por Arquétipo</div>
-      <div class="mut" style="font-size:11px;margin-bottom:6px">
-        Importe os áudios do Fio (pasta <b>VOZ/custom</b> e/ou <b>VOZ/custom_fx</b>) e atribua SFX de presença por arquétipo.
-      </div>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
-        <input id="spFiles" type="file" webkitdirectory multiple accept="audio/*" class="input ring" style="max-width:320px" />
-        <button id="spImport" class="btn fx-trans fx-press ring">Importar pasta</button>
-        <button id="spClear" class="btn fx-trans fx-press ring">Limpar SFX</button>
-      </div>
-      <div class="mut" id="spStats" style="font-size:11px;margin-bottom:8px">—</div>
-      <div id="spList" style="display:grid; gap:8px"></div>
-    `;
-    // Insert after "Vozes dos Arquétipos" block if present
-    const anchor = document.getElementById('soundpacksMount') || grid;
-    anchor.appendChild(card);
-
-    // Bind
-    const input = card.querySelector('#spFiles');
-    const btnImport = card.querySelector('#spImport');
-    const btnClear  = card.querySelector('#spClear');
-    const spStats   = card.querySelector('#spStats');
-    const spList    = card.querySelector('#spList');
-
-    btnImport.addEventListener('click', async ()=>{
-      const files = input.files ? Array.from(input.files) : [];
-      if(!files.length){ alert('Selecione a pasta VOZ/custom ou VOZ/custom_fx'); return; }
-      spStats.textContent = 'Processando…';
-      const n = await importFiles(files);
-      spStats.textContent = `${n} arquivo(s) mapeado(s). Armazenamento: ${fmtBytes(bytesOfLS())}`;
-      renderList();
-      try{ speakWithActiveArch('Soundpack importado.'); }catch(e){}
-    });
-    btnClear.addEventListener('click', ()=>{
-      if(!confirm('Limpar mapeamentos de SFX por arquétipo?')) return;
-      localStorage.removeItem(KEY);
-      renderList();
-      spStats.textContent = `Armazenamento: ${fmtBytes(bytesOfLS())}`;
-      try{ speakWithActiveArch('Soundpack limpo.'); }catch(e){}
-    });
-
-    function renderList(){
-      const map = loadMap();
-      spList.innerHTML = '';
-      const names = ARCH_KEYS.slice();
-      names.sort();
-      names.forEach(name=>{
-        const row = document.createElement('div');
-        row.style.display = 'grid';
-        row.style.gridTemplateColumns = '120px 1fr auto';
-        row.style.alignItems = 'center';
-        row.style.gap = '8px';
-        const k = document.createElement('div');
-        k.style.fontWeight = '800';
-        k.textContent = name;
-        const v = document.createElement('div');
-        const m = map[name];
-        if(m && m.sfx){
-          const audio = document.createElement('audio');
-          audio.controls = true;
-          audio.src = m.sfx;
-          audio.style.maxWidth = '100%';
-          const small = document.createElement('div');
-          small.className = 'mut'; small.style.fontSize = '11px';
-          small.textContent = m.label || '(SFX)';
-          v.appendChild(audio); v.appendChild(small);
-        }else{
-          const span = document.createElement('span');
-          span.className = 'mut';
-          span.textContent = '— sem SFX —';
-          v.appendChild(span);
-        }
-        const a = document.createElement('div');
-        const b1 = document.createElement('button');
-        b1.className = 'btn fx-trans fx-press ring';
-        b1.textContent = 'Definir SFX…';
-        b1.addEventListener('click', async ()=>{
-          const pick = document.createElement('input');
-          pick.type = 'file'; pick.accept = 'audio/*';
-          pick.onchange = async (ev)=>{
-            const f = pick.files && pick.files[0]; if(!f) return;
-            const data = await fileToDataURL(f);
-            assign(name, data, f.name, f.type||'audio/wav');
-            renderList();
-            try{ speakWithActiveArch('SFX definido'); }catch(e){}
-          };
-          pick.click();
-        });
-        const b2 = document.createElement('button');
-        b2.className = 'btn fx-trans fx-press ring';
-        b2.textContent = 'Tocar';
-        b2.addEventListener('click', ()=> playSFXForArch(name));
-        a.appendChild(b1); a.appendChild(b2);
-        row.appendChild(k); row.appendChild(v); row.appendChild(a);
-        spList.appendChild(row);
-      });
-      spStats.textContent = `Armazenamento: ${fmtBytes(bytesOfLS())}`;
-    }
-
-    renderList();
-  }
-
-  document.addEventListener('DOMContentLoaded', mountPanel, { once:true });
 })();
