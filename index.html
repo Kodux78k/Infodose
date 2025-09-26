@@ -22,8 +22,9 @@
       --grad-b: #00c5e5;
       --fg: #f5f7ff;
       --mut: rgba(245, 247, 255, .68);
-      --surface: rgba(15, 17, 32, .50);
-      --surface-strong: rgba(15, 17, 32, .88);
+      /* Superfícies levemente mais opacas para melhorar a legibilidade em fundos complexos */
+      --surface: rgba(15, 17, 32, .65);
+      --surface-strong: rgba(15, 17, 32, .92);
       --bd: 1px solid rgba(255, 255, 255, .12);
       --ok: #39ffb6;
       --warn: #ffb86b;
@@ -56,8 +57,9 @@
       --grad-b: #1f242d;
       --fg: #f1f2f5;
       --mut: rgba(241, 242, 245, .68);
-      --surface: rgba(44, 47, 56, .40);
-      --surface-strong: rgba(44, 47, 56, .75);
+      /* No tema médio, aumente a opacidade das superfícies para reforçar o efeito de vidro */
+      --surface: rgba(44, 47, 56, .55);
+      --surface-strong: rgba(44, 47, 56, .85);
       --bd: 1px solid rgba(255, 255, 255, .06);
       --ok: #68d391;
       --warn: #f6ad55;
@@ -263,7 +265,7 @@ body::after {
       /* Ícone favoritado mantém cor original (amarelo) */
       filter: none;
     }
-    .card { background: var(--surface); border: var(--bd); border-radius: var(--r2); box-shadow: var(--shadow); padding: 12px; display: flex; gap: 10px; align-items: center; position: relative }
+    .card { background: var(--surface); border: var(--bd); border-radius: var(--r2); box-shadow: var(--shadow); padding: 12px; display: flex; gap: 10px; align-items: center; position: relative; backdrop-filter: blur(8px) saturate(160%) }
     .card.fx-trans:hover { box-shadow: 0 16px 40px rgba(0,0,0,.5) }
     .ico { width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center; background: rgba(255,255,255,.06); border: var(--bd) }
     .mut { color: var(--mut); font-size: 12px }
@@ -291,14 +293,32 @@ body::after {
       display: flex;
       gap: 12px;
       align-items: center;
-      /* Use um fundo um pouco mais claro para destacar cada app e melhorar a legibilidade */
-      background: rgba(255, 255, 255, 0.06);
+      /* Use um fundo com maior opacidade e um leve blur para destacar cada app e melhorar a legibilidade */
+      background: var(--surface);
+      backdrop-filter: blur(8px) saturate(160%);
       border: var(--bd);
       border-radius: var(--r);
       padding: 14px;
     }
     .app-card:hover { box-shadow: 0 12px 34px rgba(0,0,0,.46) }
     .app-icon { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; background: #0f1528; border: var(--bd); overflow: hidden }
+
+    /* Ícone com a letra do app no cabeçalho das sessões. Utiliza a
+       primeira letra do título e cores do gradiente para destacar o
+       aplicativo em cada cartão. */
+    .session .hdr .app-icon {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      margin-right: 6px;
+      background: var(--grad-a);
+      color: #fff;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 600;
+    }
     .app-title {
       font-weight: 800;
       /* Evitar quebra de linhas em títulos longos e mostrar reticências */
@@ -657,7 +677,11 @@ body::after {
     #arch-fadeCover {
       position: absolute;
       inset: 0;
-      background: var(--bg, #0b0f14);
+      /* Use a cor do arquétipo ativo, se definida, para o fade. Isso
+         torna a transição mais perceptível quando um novo arquétipo
+         é selecionado.  Caso não haja overlay, caia para a cor de
+         fundo padrão. */
+      background: var(--arch-overlay, var(--bg, #0b0f14));
       opacity: 0;
       pointer-events: none;
       transition: opacity .3s ease;
@@ -1122,11 +1146,20 @@ body::after {
         <div class="card fx-trans fx-lift" style="display:block">
           <div style="font-weight:800; display:flex; align-items:center; gap:8px">
             Sessões
-            <button id="btnCloseAll" class="btn fx-trans fx-press ring" title="Fechar todas">Fechar todas<span class="ripple"></span></button>
+            <button id="btnCloseAll" class="btn fx-trans fx-press ring" title="Fechar todas">
+              <img src="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6/svgs/solid/xmark.svg" alt="Fechar todas" width="16" height="16" onerror="this.onerror=null;this.src='icons/xmark.svg'" style="margin-right:4px">
+              Fechar todas<span class="ripple"></span>
+            </button>
             <!-- Botão para criar grupos de sessões -->
-            <button id="btnAddGroup" class="btn fx-trans fx-press ring" title="Novo grupo">Novo grupo<span class="ripple"></span></button>
+            <button id="btnAddGroup" class="btn fx-trans fx-press ring" title="Novo grupo">
+              <img src="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6/svgs/solid/folder-plus.svg" alt="Novo grupo" width="16" height="16" onerror="this.onerror=null;this.src='icons/folder-plus.svg'" style="margin-right:4px">
+              Novo grupo<span class="ripple"></span>
+            </button>
             <!-- Botão para enviar um HTML local e abrir como sessão -->
-            <button id="btnStackUpload" class="btn fx-trans fx-press ring" title="Upload HTML">Upload HTML<span class="ripple"></span></button>
+            <button id="btnStackUpload" class="btn fx-trans fx-press ring" title="Upload HTML">
+              <img src="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6/svgs/solid/file-upload.svg" alt="Upload HTML" width="16" height="16" onerror="this.onerror=null;this.src='icons/file-upload.svg'" style="margin-right:4px">
+              Upload HTML<span class="ripple"></span>
+            </button>
             <input id="stackUpload" type="file" accept=".html,text/html" style="display:none" />
           </div>
           <div class="mut">Reabra rápido pelo dock abaixo.</div>
@@ -1144,6 +1177,22 @@ body::after {
           <div style="display:flex;gap:8px;align-items:center;margin-top:6px">
             <input id="userName" class="input ring" placeholder="Seu nome" />
             <button id="saveName" class="btn prime fx-trans fx-press ring">Salvar<span class="ripple"></span></button>
+          </div>
+        </div>
+        <!-- Configuração do assistente (Dual) -->
+        <div class="card fx-trans fx-lift" style="display:block">
+          <div style="font-weight:800">Assistente</div>
+          <div style="display:flex;gap:8px;align-items:center;margin-top:6px">
+            <input id="assistantName" class="input ring" placeholder="Nome do assistente" />
+            <button id="saveAssistant" class="btn prime fx-trans fx-press ring">Salvar<span class="ripple"></span></button>
+          </div>
+        </div>
+        <!-- Seleção da voz de boas-vindas -->
+        <div class="card fx-trans fx-lift" style="display:block">
+          <div style="font-weight:800">Voz do assistente</div>
+          <div style="display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap">
+            <select id="selectVoice" class="input ring" style="max-width:260px"></select>
+            <button id="saveVoice" class="btn fx-trans fx-press ring">Salvar<span class="ripple"></span></button>
           </div>
         </div>
         <div class="card fx-trans fx-lift" style="display:block">
@@ -2123,10 +2172,60 @@ body::after {
       $('#saveSK').onclick = () => { LS.set('dual.openrouter.model', sel.value); localStorage.setItem('dual.keys.openrouter', $('#sk').value || ''); toast('Configurações salvas', 'ok'); };
       $('#saveName').onclick = () => {
         localStorage.setItem('infodose:userName', ($('#userName').value || '').trim());
-        toast('Nome salvo', 'ok');
+        // Toque som especial ao salvar o nome do usuário (Tech Pop)
+        try { if (typeof window.playTechPopSound === 'function') window.playTechPopSound(); } catch {}
+        // Mensagens de toast foram desativadas globalmente
         try { displayGreeting(); } catch (e) {}
         try { updateHomeStatus(); } catch {}
       };
+
+      // Preencher campo de assistente com valor salvo
+      const assistantInput = document.getElementById('assistantName');
+      if (assistantInput) {
+        assistantInput.value = (localStorage.getItem('infodose:assistantName') || '').trim();
+      }
+      // Salvar nome do assistente
+      const btnAssistant = document.getElementById('saveAssistant');
+      if (btnAssistant) {
+        btnAssistant.onclick = () => {
+          const nameVal = (assistantInput.value || '').trim();
+          localStorage.setItem('infodose:assistantName', nameVal);
+          try { if (typeof window.playTechPopSound === 'function') window.playTechPopSound(); } catch {}
+        };
+      }
+
+      // Preencher lista de vozes para seleção global de fala
+      const voiceSel = document.getElementById('selectVoice');
+      function populateVoiceSel() {
+        if (!voiceSel) return;
+        voiceSel.innerHTML = '';
+        let voices = speechSynthesis.getVoices();
+        if (!voices || !voices.length) return;
+        // Filtrar por idiomas suportados (Português e Inglês) se disponível
+        const filtered = voices.filter(v => v.lang && (v.lang.toLowerCase().startsWith('pt') || v.lang.toLowerCase().startsWith('en')));
+        voices = filtered.length ? filtered : voices;
+        const savedVoice = localStorage.getItem('infodose:speechVoice') || '';
+        voices.forEach(v => {
+          const opt = document.createElement('option');
+          opt.value = v.name;
+          opt.textContent = v.name + ' (' + v.lang + ')';
+          if (savedVoice && savedVoice === v.name) opt.selected = true;
+          voiceSel.appendChild(opt);
+        });
+      }
+      if (voiceSel) {
+        // Populate now and when voices change
+        populateVoiceSel();
+        speechSynthesis.onvoiceschanged = populateVoiceSel;
+      }
+      const btnVoice = document.getElementById('saveVoice');
+      if (btnVoice && voiceSel) {
+        btnVoice.onclick = () => {
+          const val = voiceSel.value;
+          localStorage.setItem('infodose:speechVoice', val || '');
+          try { if (typeof window.playTechPopSound === 'function') window.playTechPopSound(); } catch {}
+        };
+      }
 
       // Permitir adicionar modelo personalizado
       const addBtn = $('#addModel');
@@ -2557,7 +2656,7 @@ body::after {
       if (a.gid) card.dataset.gid = a.gid;
       card.innerHTML = `
         <div class="hdr">
-          <div class="title">${(a.title || 'App')}</div>
+          <div class="title"><span class="app-icon">${((a.title || 'App')[0] || 'A')}</span>${(a.title || 'App')}</div>
           <div class="tools">
             <button class="btn ring fx-trans fx-press" data-act="min" title="Minimizar">
               <span style="font-size:16px;line-height:1">&minus;</span>
@@ -2955,6 +3054,72 @@ body::after {
   </div>
 </div>
 <script>
+// === Fala por voz usando Web Speech API ===
+// Estas funções utilizam a API de síntese de fala do navegador para
+// pronunciar mensagens. A voz padrão é configurada para o português do Brasil.
+// Fala uma mensagem opcionalmente selecionando uma voz preferida.
+function pickVoice(pref) {
+  try {
+    const voices = speechSynthesis.getVoices();
+    if (!voices || !voices.length) return null;
+    // Se houver uma preferência, tente encontrá-la pelo nome
+    if (pref) {
+      const found = voices.find(v => v.name && v.name.toLowerCase().includes(pref.toLowerCase()));
+      if (found) return found;
+    }
+    // Caso contrário, escolha uma voz em português ou a primeira disponível
+    const ptVoice = voices.find(v => v.lang && v.lang.toLowerCase().startsWith('pt'));
+    return ptVoice || voices[0];
+  } catch (err) {
+    return null;
+  }
+}
+function speakMsg(msg, voicePref) {
+  try {
+    const utter = new SpeechSynthesisUtterance(msg);
+    utter.lang = 'pt-BR';
+    const voice = pickVoice(voicePref);
+    if (voice) utter.voice = voice;
+    speechSynthesis.speak(utter);
+  } catch (e) {
+    console.warn('Speech synthesis not supported', e);
+  }
+}
+function speakSplash() {
+  // Recupera o nome do usuário salvo no localStorage para personalizar a mensagem
+  const name = (localStorage.getItem('infodose:userName') || '').trim();
+  // Se houver nome de usuário, use-o; caso contrário utilize "Dual" como padrão
+  const msg = name ? `${name}, pulso ativo.` : 'Oi Dual, pulso ativo.';
+  // Use a voz selecionada pelo usuário no Brain, ou "Joana" como fallback
+  const prefVoice = (localStorage.getItem('infodose:speechVoice') || '').trim() || 'Joana';
+  speakMsg(msg, prefVoice);
+}
+function speakHomeGreeting() {
+  // Esta função pode ser chamada manualmente para saudar o usuário na home.
+  // Não é chamada automaticamente para evitar saudações inesperadas.
+  const assistant = (localStorage.getItem('dual.assistantName') || localStorage.getItem('infodose:assistantName') || 'Dual').trim();
+  // Determine arquétipo selecionado a partir do select (remove .html)
+  let archName = '';
+  const sel = document.getElementById('arch-select');
+  if (sel && sel.options.length > 0) {
+    const opt = sel.options[sel.selectedIndex];
+    if (opt) archName = opt.textContent.replace(/\.html$/i, '');
+  }
+  let msg = '';
+  // Determine o nome de saudação ou utilize "Dual" como padrão
+  const userName = (localStorage.getItem('infodose:userName') || '').trim();
+  const greet = userName || 'Dual';
+  if (assistant && archName) {
+    msg = `Oi ${greet}, eu sou ${assistant}. Ativo o impulso com o arquétipo ${archName}.`;
+  } else if (assistant) {
+    msg = `Oi ${greet}, eu sou ${assistant}.`;
+  } else {
+    msg = `Oi ${greet}, ative seu impulso configurando um arquétipo.`;
+  }
+  // Use a voz salva pelo usuário ou o nome do arquétipo; se ambos vazios, use Joana
+  const prefVoice = (localStorage.getItem('infodose:speechVoice') || '').trim();
+  speakMsg(msg, archName || prefVoice || 'Joana');
+}
 // ===== LS Control (isolated; safe append) =====
 (function(){
   function toast(msg, type){ try{ window.toast(msg, type || 'ok') }catch{ console.log(msg) } }
@@ -3251,6 +3416,8 @@ window.addEventListener('load', () => {
       });
     } catch (err) {}
   }
+  // Fale durante o splash usando a síntese de voz
+  try { if (typeof speakSplash === 'function') speakSplash(); } catch {}
   // Aguarde um breve instante após o carregamento para garantir que o loader seja exibido.
   // Aumente este valor (ms) para manter o splash por mais tempo. Aqui usamos 1200ms (1.2s).
   setTimeout(() => {
@@ -3458,7 +3625,8 @@ window.addEventListener('load', () => {
 })();
 </script>
   <!-- Sons da interface.  Coloque os arquivos em sounds/ui/*.wav conforme distribuídos no pacote UNO_UISounds_Pack_v1. -->
-  <audio id="sndClick"  src="sounds/ui/click.wav" preload="auto"></audio>
+  <!-- Use o som Back Action como clique principal -->
+  <audio id="sndClick"  src="sounds/ui/back-action.wav" preload="auto"></audio>
   <audio id="sndHover"  src="sounds/ui/hover.wav" preload="auto"></audio>
   <audio id="sndOpen"   src="sounds/ui/open.wav" preload="auto"></audio>
   <audio id="sndClose"  src="sounds/ui/close.wav" preload="auto"></audio>
@@ -3469,6 +3637,8 @@ window.addEventListener('load', () => {
   <audio id="sndSuccess" src="sounds/ui/success.wav" preload="auto"></audio>
   <audio id="sndWarn"    src="sounds/ui/warn.wav" preload="auto"></audio>
   <audio id="sndError"   src="sounds/ui/error.wav" preload="auto"></audio>
+  <!-- Som Tech Pop usado para ações especiais (ex: salvar nome) -->
+  <audio id="sndTechPop" src="sounds/ui/tech-pop.wav" preload="auto"></audio>
   <script>
   // Associe sons aos principais elementos de interface.  Cada botão com a
   // classe .btn toca o som de clique; os itens de navegação tocam som de
@@ -3497,6 +3667,8 @@ window.addEventListener('load', () => {
     // Sobrescreva open/close de sessões para tocar sons
     window.playOpenSound = () => play('sndOpen');
     window.playCloseSound = () => play('sndClose');
+    // Exponha também som especial Tech Pop
+    window.playTechPopSound = () => play('sndTechPop');
   })();
   </script>
 </body>
