@@ -1,0 +1,60 @@
+/* loaders.css — todos os loaders usando var(--grad-a/b) */
+.di{ --di-size:40px; --di-stroke:2px; --di-gold: color-mix(in oklab, var(--grad-a) 60%, var(--grad-b) 40%);
+  position:relative;width:var(--di-size);height:var(--di-size)}
+.di .ring{position:absolute;inset:0;border:var(--di-stroke) solid var(--di-gold);
+  border-radius:50%;animation:di-spin 6s linear infinite}
+.di .stroke{position:absolute;left:50%;top:50%;width:62%;height:var(--di-stroke);
+  background:linear-gradient(90deg,var(--grad-a),var(--grad-b));transform:translate(-50%,-50%);
+  border-radius:999px;animation:di-breathe 2.4s ease-in-out infinite}
+.di .dots{position:absolute;inset:0;transform:rotate(-90deg);animation:di-orbit 4.2s linear infinite}
+.di .dots i{--i:0;position:absolute;left:50%;top:50%;width:4px;height:4px;border-radius:50%;
+  background:conic-gradient(var(--grad-a),var(--grad-b));
+  -webkit-mask: radial-gradient(circle, #000 62%, transparent 63%);
+  mask: radial-gradient(circle, #000 62%, transparent 63%);
+  opacity:.85;transform:rotate(calc(var(--i)*51deg)) translate(calc(7px + var(--i)*2.2px)) rotate(calc(var(--i)*-51deg));
+  animation:di-pulse 4.2s linear infinite;animation-delay:calc(var(--i)*.6s)}
+@keyframes di-orbit{to{transform:rotate(270deg)}}@keyframes di-spin{to{transform:rotate(360deg)}}
+@keyframes di-breathe{0%,100%{opacity:.9}50%{opacity:1}}
+@keyframes di-pulse{0%,70%{opacity:.55;transform:scale(.92)}76%,84%{opacity:1;transform:scale(1.12)}100%{opacity:.7;transform:scale(.96)}}
+
+.simbio{position:relative;width:40px;height:40px}
+.simbio .ringA,.simbio .ringB{position:absolute;inset:0;border-radius:50%;
+  -webkit-mask:radial-gradient(farthest-side,transparent calc(50% - 1px),#000 calc(50% - 1px),#000 100%);
+  mask:radial-gradient(farthest-side,transparent calc(50% - 1px),#000 calc(50% - 1px),#000 100%)}
+.simbio .ringA{background:conic-gradient(from 0deg,var(--grad-a),transparent 60%);animation:rotA 4.8s linear infinite}
+.simbio .ringB{background:conic-gradient(from 180deg,var(--grad-b),transparent 60%);animation:rotB 6.2s linear infinite}
+.simbio .stroke{position:absolute;left:50%;top:50%;width:60%;height:2px;background:linear-gradient(90deg,var(--grad-a),var(--grad-b));
+  transform:translate(-50%,-50%);border-radius:999px;opacity:.9}
+@keyframes rotA{to{transform:rotate(360deg)}}@keyframes rotB{to{transform:rotate(-360deg)}}
+
+.pulse{position:relative;width:40px;height:40px;display:grid;place-items:center}
+.pulse .dot{width:8px;height:8px;border-radius:50%;background:linear-gradient(90deg,var(--grad-a),var(--grad-b))}
+.pulse .wave{position:absolute;inset:0;border-radius:50%;animation:wave 2.4s ease-out infinite;opacity:.6}
+.pulse .wave::before{content:"";position:absolute;inset:0;border-radius:50%;
+  background:conic-gradient(var(--grad-a),var(--grad-b));
+  -webkit-mask:radial-gradient(farthest-side,transparent calc(50% - 1px),#000 calc(50% - 1px),#000 100%);
+  mask:radial-gradient(farthest-side,transparent calc(50% - 1px),#000 calc(50% - 1px),#000 100%);}
+.pulse .wave:nth-child(1){animation-delay:0s}.pulse .wave:nth-child(2){animation-delay:.7s}.pulse .wave:nth-child(3){animation-delay:1.4s}
+@keyframes wave{0%{transform:scale(.5);opacity:.36}50%{transform:scale(1.4);opacity:.58}100%{transform:scale(1.35);opacity:.0}}
+
+.coblux{position:relative;width:40px;height:40px;filter:drop-shadow(0 0 10px color-mix(in oklab,var(--grad-a) 35%, transparent)) drop-shadow(0 0 14px color-mix(in oklab,var(--grad-b) 25%, transparent))}
+.coblux .ring{position:absolute;inset:0;border-radius:50%;background:conic-gradient(from 90deg,var(--grad-a),var(--grad-b));
+  -webkit-mask:radial-gradient(farthest-side,transparent calc(50% - 1px),#000 calc(50% - 1px),#000 100%);animation:spinFast 2.4s linear infinite}
+.coblux .trail{position:absolute;left:50%;top:50%;width:4px;height:4px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff 0 20%,var(--grad-a) 40%,var(--grad-b) 100%);transform-origin:-12px 0;animation:trail 1.8s linear infinite}
+@keyframes spinFast{to{transform:rotate(360deg)}}@keyframes trail{to{transform:rotate(360deg)}}
+
+.icon56{position:relative;width:56px;height:56px;display:block}
+.home-base{position:absolute;left:50%;top:50%;width:36px;height:24px;border:3px solid var(--grad-b);border-top:3px solid transparent;
+  transform:translate(-50%,-10px) scale(0);border-radius:5px;box-shadow:0 0 10px color-mix(in oklab,var(--grad-b) 60%, transparent);animation:homeBase 2.4s ease-in-out infinite}
+.home-roof{position:absolute;left:50%;top:30%;width:0;height:0;border-left:18px solid transparent;border-right:18px solid transparent;border-bottom:20px solid var(--grad-b);
+  transform:translateX(-50%) scaleX(0);filter:drop-shadow(0 0 8px color-mix(in oklab,var(--grad-a) 60%, transparent));animation:homeRoof 2.4s ease-in-out infinite}
+@keyframes homeBase{0%{transform:translate(-50%,-10px) scale(0)}40%{transform:translate(-50%,-10px) scale(1)}80%{transform:translate(-50%,-10px) scale(1)}100%{transform:translate(-50%,-10px) scale(0)}}
+@keyframes homeRoof{0%{transform:translateX(-50%) scaleX(0)}50%{transform:translateX(-50%) scaleX(1)}100%{transform:translateX(-50%) scaleX(0)}}
+.asst-left,.asst-right{position:absolute;left:50%;top:50%;width:26px;height:26px;border-radius:50%;filter:drop-shadow(0 0 6px color-mix(in oklab,var(--grad-a) 50%, transparent))}
+.asst-left{background:radial-gradient(circle at 50% 35%, var(--grad-b) 38%, transparent 39%), radial-gradient(circle at 50% 90%, var(--grad-b) 32%, transparent 33%);transform:translate(-50%,-50%) translateX(0);animation:aL 1.6s ease-in-out infinite}
+.asst-right{background:radial-gradient(circle at 50% 35%, color-mix(in oklab, var(--grad-a) 70%, #ff7a00) 38%, transparent 39%), radial-gradient(circle at 50% 90%, color-mix(in oklab, var(--grad-a) 70%, #ff7a00) 32%, transparent 33%);transform:translate(-50%,-50%) translateX(0);animation:aR 1.6s ease-in-out infinite}
+@keyframes aL{0%,100%{transform:translate(-50%,-50%) translateX(0) scale(1)}50%{transform:translate(-50%,-50%) translateX(-10px) scale(.95)}}
+@keyframes aR{0%,100%{transform:translate(-50%,-50%) translateX(0) scale(1)}50%{transform:translate(-50%,-50%) translateX(10px) scale(.95)}}
+.kob-ring{position:absolute;inset:6px;border-radius:50%;background:conic-gradient(from 0deg, var(--grad-b) 0 350deg, transparent 350deg 360deg);filter:drop-shadow(0 0 8px color-mix(in oklab,var(--grad-a) 60%, transparent));animation:spin 1.2s linear infinite}
+.kob-spiral{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:22px;animation:spin 1.6s linear infinite reverse;filter:drop-shadow(0 0 6px color-mix(in oklab,var(--grad-b) 60%, transparent))}
+@keyframes spin{to{transform:rotate(360deg)}}

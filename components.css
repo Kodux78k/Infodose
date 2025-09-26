@@ -1,0 +1,11 @@
+/* components.css — botões/cards/barra de progresso demo */
+.card{background:linear-gradient(135deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+  border:1px solid var(--stroke); border-radius:18px; padding:16px; backdrop-filter: blur(8px)}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.h{margin:0 0 8px;font-weight:700}
+.small{font-size:.85rem;color:var(--muted)}
+.btn-icon{display:grid;place-items:center;width:44px;height:44px;border-radius:50%;border:1px solid var(--stroke);background:rgba(255,255,255,.05)}
+.bar{height:6px;background:rgba(255,255,255,.06);border-radius:999px;position:relative;overflow:hidden}
+.bar .p{position:absolute;left:0;top:0;bottom:0;width:35%;background:linear-gradient(42deg,var(--grad-a),var(--grad-b))}
+.container{max-width:1200px;margin:20px auto;padding:20px}
+.grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
