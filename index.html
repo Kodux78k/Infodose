@@ -134,8 +134,11 @@ body::after {
        para uma transição mais suave. Você pode ajustar os valores para
        personalizar o timing. */
     @keyframes fadeSimple {
-      0%   { opacity: 0; transform: scale(0.98); }
-      60%  { opacity: 0.8; transform: scale(1.02); }
+      /* Para um efeito de zoom mais sutil, usamos valores de escala
+         mais próximos de 1. Altere estes valores caso deseje ajustar a
+         intensidade do zoom. */
+      0%   { opacity: 0; transform: scale(0.995); }
+      60%  { opacity: 0.8; transform: scale(1.005); }
       100% { opacity: 1; transform: scale(1); }
     }
 
@@ -1337,6 +1340,9 @@ body::after {
   </script>
 
   <script>
+  // Redefine the global toast function to suppress popup messages. If you
+  // later decide to re-enable notifications, remove or comment out this line.
+  window.toast = function(){};
     /* ===================== Helpers ===================== */
     const $ = (q, r = document) => r.querySelector(q);
     const $$ = (q, r = document) => Array.from(r.querySelectorAll(q));
@@ -2647,6 +2653,8 @@ body::after {
         updateDock();
         saveStackState();
         dualLog('Sessão fechada: ' + (a.title || 'App'));
+        // Toque som de fechamento de sessão
+        try { playCloseSound(); } catch {}
       };
       // Botão tela cheia
       const fullBtn = card.querySelector('[data-act=full]');
@@ -2728,6 +2736,8 @@ body::after {
       saveStackState();
       // Não exiba toast ao abrir uma nova sessão
       dualLog('Sessão aberta: ' + (a.title || 'App'));
+      // Toque som de abertura de app, se definido
+      try { playOpenSound(); } catch {}
     }
     $('#btnCloseAll').onclick = () => {
       if (!confirm('Fechar todas as sessões abertas?')) return;
@@ -3447,5 +3457,47 @@ window.addEventListener('load', () => {
   });
 })();
 </script>
+  <!-- Sons da interface.  Coloque os arquivos em sounds/ui/*.wav conforme distribuídos no pacote UNO_UISounds_Pack_v1. -->
+  <audio id="sndClick"  src="sounds/ui/click.wav" preload="auto"></audio>
+  <audio id="sndHover"  src="sounds/ui/hover.wav" preload="auto"></audio>
+  <audio id="sndOpen"   src="sounds/ui/open.wav" preload="auto"></audio>
+  <audio id="sndClose"  src="sounds/ui/close.wav" preload="auto"></audio>
+  <audio id="sndTab"    src="sounds/ui/tab.wav" preload="auto"></audio>
+  <audio id="sndNav"    src="sounds/ui/nav.wav" preload="auto"></audio>
+  <audio id="sndBack"   src="sounds/ui/back.wav" preload="auto"></audio>
+  <audio id="sndDrag"   src="sounds/ui/drag.wav" preload="auto"></audio>
+  <audio id="sndSuccess" src="sounds/ui/success.wav" preload="auto"></audio>
+  <audio id="sndWarn"    src="sounds/ui/warn.wav" preload="auto"></audio>
+  <audio id="sndError"   src="sounds/ui/error.wav" preload="auto"></audio>
+  <script>
+  // Associe sons aos principais elementos de interface.  Cada botão com a
+  // classe .btn toca o som de clique; os itens de navegação tocam som de
+  // tab ou nav; a abertura/fechamento de sessões dispara sons específicos.
+  (function(){
+    const getAudio = id => document.getElementById(id);
+    const play = (id) => {
+      const audio = getAudio(id);
+      if (audio) {
+        try { audio.currentTime = 0; audio.play(); } catch {}
+      }
+    };
+    // Clique em qualquer botão
+    document.body.addEventListener('click', (e) => {
+      const btn = e.target.closest('.btn');
+      if (btn) play('sndClick');
+      // Navegação inferior (tabs)
+      const navBtn = e.target.closest('nav .btn');
+      if (navBtn) play('sndTab');
+    });
+    // Hover (mouseenter) em botões
+    document.body.addEventListener('mouseenter', (e) => {
+      const btn = e.target.closest('.btn');
+      if (btn) play('sndHover');
+    }, true);
+    // Sobrescreva open/close de sessões para tocar sons
+    window.playOpenSound = () => play('sndOpen');
+    window.playCloseSound = () => play('sndClose');
+  })();
+  </script>
 </body>
 </html>
