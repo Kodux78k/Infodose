@@ -46,6 +46,7 @@
      estética quando nenhum arquétipo estiver selecionado. */
   --arch-overlay: rgba(0,0,0,0);
       --ease: cubic-bezier(.22, .61, .36, 1);
+  /* Oculta a aba Stack e sua view na versão sem Stacks */
     }
 
     /* Tema alternativo: medium gray / glasmorfismo. Quando body[data-theme="medium"] estiver definido, estas variáveis substituem as originais. */
@@ -137,8 +138,8 @@ body::after {
        personalizar o timing. */
     @keyframes fadeSimple {
       /* Para um efeito de zoom mais sutil, usamos valores de escala
-         mais próximos de 1. Altere estes valores caso deseje ajustar a
-         intensidade do zoom. */
+         mais próximos de 1. Você pode ajustar estes números caso
+         deseje um zoom mais forte ou mais discreto. */
       0%   { opacity: 0; transform: scale(0.995); }
       60%  { opacity: 0.8; transform: scale(1.005); }
       100% { opacity: 1; transform: scale(1); }
@@ -167,11 +168,7 @@ body::after {
       display: none !important;
     }
 
-    /* ===== Estilos para ícones fixados na barra ===== */
-    .tabbar .tab[data-pinned] {
-      /* Estilo semelhante às abas padrão, mas com cor diferenciada no hover */
-      position: relative;
-    }
+    /* ===== Estilos para ícones fixados na barra (versão sem Stack) ===== */
     .pin-letter {
       width: 18px;
       height: 18px;
@@ -181,7 +178,7 @@ body::after {
       border-radius: 50%;
       font-size: 12px;
       font-weight: 800;
-      background: rgba(255, 255, 255, 0.15);
+      background: rgba(255,255,255,0.15);
       color: var(--fg);
       line-height: 1;
     }
@@ -293,12 +290,12 @@ body::after {
       display: flex;
       gap: 12px;
       align-items: center;
-      /* Use um fundo com maior opacidade e um leve blur para destacar cada app e melhorar a legibilidade */
+      /* Use um fundo com maior opacidade e adicione blur para destacar cada app e melhorar a legibilidade */
       background: var(--surface);
-      backdrop-filter: blur(8px) saturate(160%);
       border: var(--bd);
       border-radius: var(--r);
       padding: 14px;
+      backdrop-filter: blur(8px) saturate(160%);
     }
     .app-card:hover { box-shadow: 0 12px 34px rgba(0,0,0,.46) }
     .app-icon { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; background: #0f1528; border: var(--bd); overflow: hidden }
@@ -331,6 +328,8 @@ body::after {
       display: grid;
       gap: 12px;
       margin: 12px 14px;
+      /* Reserve espaço inferior para que o conteúdo não fique sob a barra de navegação */
+      padding-bottom: calc(var(--tabsH) + 16px);
     }
     /* Estilos para o painel Brain (perfil, performance, voz, logs). */
     #brain { position: fixed; top: calc(var(--hdrH) + 12px); right: 14px; width: min(92vw, 440px); z-index: 130; }
@@ -365,6 +364,22 @@ body::after {
       border: 1px solid rgba(255,255,255,.25);
     }
     .session .resize-handle:hover { background: rgba(255,255,255,.25); }
+
+    /* Ajustes para o modo tela cheia: a sessão ocupa toda a tela, mantendo a navegação visível. */
+    .session.full {
+      position: fixed !important;
+      inset: 0;
+      z-index: 1000;
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+    .session.full iframe {
+      flex: 1 1 auto !important;
+      height: 100% !important;
+    }
 
     /* ===== Dock + Tabs ===== */
     .dock { position: fixed; left: 10px; right: 10px; bottom: calc(var(--tabsH) + 8px + env(safe-area-inset-bottom)); display: none; gap: 8px; flex-wrap: wrap; z-index: 80 }
@@ -677,10 +692,7 @@ body::after {
     #arch-fadeCover {
       position: absolute;
       inset: 0;
-      /* Use a cor do arquétipo ativo, se definida, para o fade. Isso
-         torna a transição mais perceptível quando um novo arquétipo
-         é selecionado.  Caso não haja overlay, caia para a cor de
-         fundo padrão. */
+      /* Use a cor do arquétipo ativo para melhorar a percepção da transição */
       background: var(--arch-overlay, var(--bg, #0b0f14));
       opacity: 0;
       pointer-events: none;
@@ -903,28 +915,8 @@ body::after {
       padding-right: calc(78px + 14px);
       padding-bottom: calc(env(safe-area-inset-bottom, 0) + 12px);
     }
-    /* ===== Estilos adicionais para grupos de sessões e fullscreen no Stack ===== */
-    /* Container do grupo de sessões. Utiliza <details> para permitir colapsar/expandir. */
-    .stack-group { margin-top: 12px; border: var(--bd); border-radius: var(--r); overflow: hidden; }
-    .stack-group summary { background: var(--surface); padding: 8px 12px; font-weight: 800; cursor: pointer; list-style: none; display:flex; align-items:center; justify-content:space-between; }
-    .stack-group summary::-webkit-details-marker { display: none; }
-    .stack-group .group-content { padding: 8px 12px; }
-    .stack-group .group-content .session { margin-top: 8px; }
-
-    /* Deixe espaço no fim do Stack para a barra de navegação.  Isso evita que
-       as sessões sobreponham os botões da nav inferior. */
-    #stackWrap {
-      padding-bottom: calc(var(--tabsH) + 16px);
-    }
-
-    /* Tela cheia de uma sessão: ocupa toda a tela, esconde cabeçalho e tabs */
-    .session.full { position: fixed !important; inset: 0; z-index: 1000; margin: 0; width: 100%; height: 100%; display: flex; flex-direction: column; }
-    .session.full iframe { flex: 1 1 auto !important; height: 100% !important; }
-    /* No modo de tela cheia, esconda apenas o cabeçalho e o botão flutuante, mas mantenha a barra de navegação visível. */
-    body.session-full header.mast,
-    body.session-full .tabs-wrap,
-    body.session-full .fab { display: none !important; }
-
+/* Versão sem Stack: esconda a aba e a view */
+button[data-nav="stack"], .tab[data-nav="stack"], #v-stack { display: none !important; }
 </style>
 </head>
 <body>
@@ -1146,25 +1138,10 @@ body::after {
         <div class="card fx-trans fx-lift" style="display:block">
           <div style="font-weight:800; display:flex; align-items:center; gap:8px">
             Sessões
-            <button id="btnCloseAll" class="btn fx-trans fx-press ring" title="Fechar todas">
-              <img src="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6/svgs/solid/xmark.svg" alt="Fechar todas" width="16" height="16" onerror="this.onerror=null;this.src='icons/xmark.svg'" style="margin-right:4px">
-              Fechar todas<span class="ripple"></span>
-            </button>
-            <!-- Botão para criar grupos de sessões -->
-            <button id="btnAddGroup" class="btn fx-trans fx-press ring" title="Novo grupo">
-              <img src="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6/svgs/solid/folder-plus.svg" alt="Novo grupo" width="16" height="16" onerror="this.onerror=null;this.src='icons/folder-plus.svg'" style="margin-right:4px">
-              Novo grupo<span class="ripple"></span>
-            </button>
-            <!-- Botão para enviar um HTML local e abrir como sessão -->
-            <button id="btnStackUpload" class="btn fx-trans fx-press ring" title="Upload HTML">
-              <img src="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6/svgs/solid/file-upload.svg" alt="Upload HTML" width="16" height="16" onerror="this.onerror=null;this.src='icons/file-upload.svg'" style="margin-right:4px">
-              Upload HTML<span class="ripple"></span>
-            </button>
-            <input id="stackUpload" type="file" accept=".html,text/html" style="display:none" />
+            <button id="btnCloseAll" class="btn fx-trans fx-press ring" title="Fechar todas">Fechar todas<span class="ripple"></span></button>
           </div>
           <div class="mut">Reabra rápido pelo dock abaixo.</div>
         </div>
-        <!-- Área de grupos e sessões -->
         <div id="stackWrap" class="grid"></div>
       </div>
     </section>
@@ -2142,7 +2119,13 @@ body::after {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); $('#appSearch')?.focus(); return; }
       if (e.key.toLowerCase() === 'g') { gPressed = true; setTimeout(() => gPressed = false, 600); return; }
       if (!gPressed) return; const k = e.key.toLowerCase();
-      if (k === 'h') nav('home'); if (k === 'a') nav('apps'); if (k === 's') nav('stack'); if (k === 'b') nav('brain'); if (k === 'r') nav('chat'); gPressed = false;
+      if (k === 'h') nav('home');
+      if (k === 'a') nav('apps');
+      // Na versão sem Stack, ignore a tecla de atalho para 's'.
+      // if (k === 's') nav('stack');
+      if (k === 'b') nav('brain');
+      if (k === 'r') nav('chat');
+      gPressed = false;
     });
 
     // Ajuda modal
@@ -2179,7 +2162,7 @@ body::after {
         try { updateHomeStatus(); } catch {}
       };
 
-      // Preencher campo de assistente com valor salvo
+      // Preencher campo do assistente com valor salvo
       const assistantInput = document.getElementById('assistantName');
       if (assistantInput) {
         assistantInput.value = (localStorage.getItem('infodose:assistantName') || '').trim();
@@ -2188,7 +2171,7 @@ body::after {
       const btnAssistant = document.getElementById('saveAssistant');
       if (btnAssistant) {
         btnAssistant.onclick = () => {
-          const nameVal = (assistantInput.value || '').trim();
+          const nameVal = (assistantInput && assistantInput.value || '').trim();
           localStorage.setItem('infodose:assistantName', nameVal);
           try { if (typeof window.playTechPopSound === 'function') window.playTechPopSound(); } catch {}
         };
@@ -2201,7 +2184,7 @@ body::after {
         voiceSel.innerHTML = '';
         let voices = speechSynthesis.getVoices();
         if (!voices || !voices.length) return;
-        // Filtrar por idiomas suportados (Português e Inglês) se disponível
+        // Filtrar por Português ou Inglês, se existir
         const filtered = voices.filter(v => v.lang && (v.lang.toLowerCase().startsWith('pt') || v.lang.toLowerCase().startsWith('en')));
         voices = filtered.length ? filtered : voices;
         const savedVoice = localStorage.getItem('infodose:speechVoice') || '';
@@ -2214,7 +2197,6 @@ body::after {
         });
       }
       if (voiceSel) {
-        // Populate now and when voices change
         populateVoiceSel();
         speechSynthesis.onvoiceschanged = populateVoiceSel;
       }
@@ -2497,46 +2479,12 @@ body::after {
         const dir = mode === 'za' ? -1 : 1;
         return dir * String(a.title || '').localeCompare(b.title || '');
       });
-      // Organize os apps por grupo (arquetipo).  Considera-se o nome
-      // após o ponto "·" no título como o nome do grupo.  Se não houver,
-      // coloca em "Outros".
-      const grouped = {};
-      L.forEach(a => {
-        let gName = '';
-        if (a.title && a.title.includes('·')) {
-          const parts = a.title.split('·');
-          gName = (parts[1] || '').trim();
-        }
-        if (!gName) gName = 'Outros';
-        if (!grouped[gName]) grouped[gName] = [];
-        grouped[gName].push(a);
-      });
-      // Limpar o container
       appsWrap.innerHTML = '';
-      // Ordenar grupos alfabeticamente para exibir em ordem consistente
-      const groupNames = Object.keys(grouped).sort((a,b) => a.localeCompare(b));
-      let total = 0;
-      groupNames.forEach(gName => {
-        const container = document.createElement('div');
-        container.className = 'apps-group';
-        const header = document.createElement('h3');
-        header.textContent = gName;
-        header.style.margin = '16px 4px 8px';
-        header.style.fontSize = '15px';
-        header.style.fontWeight = '800';
-        header.style.color = 'var(--mut)';
-        const grid = document.createElement('div');
-        grid.className = 'grid';
-        grouped[gName].forEach(app => {
-          const card = cardApp(app);
-          grid.appendChild(card);
-          total++;
-        });
-        container.appendChild(header);
-        container.appendChild(grid);
-        appsWrap.appendChild(container);
+      L.forEach(a => {
+        const card = cardApp(a);
+        appsWrap.appendChild(card);
       });
-      appsCount.textContent = total + ' apps';
+      appsCount.textContent = L.length + ' apps';
       // Reaplicar ícones após adicionar novos cards (garante que as estrelas e ícones de apps carreguem)
       try { applyIcons(); } catch {}
       // Notifique o Revo de que os apps mudaram, se estiver ativo
@@ -2551,10 +2499,6 @@ body::after {
         RAW.apps = Array.isArray(raw.apps) ? raw.apps : (Array.isArray(raw) ? raw : []);
       } catch { RAW.apps = [] }
       renderApps();
-      // Após renderizar os apps, crie grupos padrão no Stack para cada
-      // arquetipo, se ainda não existirem.  Isso permite que as sessões
-      // abertas sejam automaticamente organizadas por grupo.
-      try { ensureDefaultGroups(); } catch (e) { console.warn('Falha ao criar grupos padrão', e); }
       // Sempre envie o catálogo atualizado ao iframe do Revo após carregar os apps embutidos.
       try {
         const iframe = document.getElementById('revoEmbed');
@@ -2637,23 +2581,13 @@ body::after {
       try { updateHomeStatus(); } catch {}
     }
     function openApp(a) {
-      // Permite receber um SID externo (para restaurar sessões) ou gera um novo se ausente
+      // Permite fornecer um SID e flag pinned para restaurar sessões; gera novos se não especificado
       const sid = a.sid || ('s_' + Math.random().toString(36).slice(2));
       const isLocal = String(a.url || '').startsWith('local:'); const lr = isLocal ? getLocal(String(a.url).slice(6)) : null; const url = lr ? blobURL(lr) : a.url;
       const card = document.createElement('div'); card.className = 'session fx-trans fx-lift';
       card.dataset.sid = sid;
-      // Armazene metadados de título/url no dataset.meta para persistência
+      // Armazene metadados no dataset.meta
       card.dataset.meta = JSON.stringify({ title: a.title || 'App', url: a.url || '' });
-      // Se nenhum grupo foi fornecido, tente atribuir com base no nome após o ponto no título (ex.: "Atlas · Cartesius").
-      if (!a.gid && a.title && a.title.includes('·')) {
-        const parts = a.title.split('·');
-        const gName = (parts[1] || '').trim();
-        if (gName) {
-          a.gid = 'g_' + gName.toLowerCase().replace(/\s+/g, '_');
-        }
-      }
-      // Se um grupo específico foi fornecido, salve no dataset.gid para persistência
-      if (a.gid) card.dataset.gid = a.gid;
       card.innerHTML = `
         <div class="hdr">
           <div class="title"><span class="app-icon">${((a.title || 'App')[0] || 'A')}</span>${(a.title || 'App')}</div>
@@ -2666,6 +2600,7 @@ body::after {
               <span style="font-size:16px;line-height:1">&#8635;</span>
               <span class="ripple"></span>
             </button>
+            <!-- Botão tela cheia -->
             <button class="btn ring fx-trans fx-press" data-act="full" title="Tela cheia">
               <span style="font-size:16px;line-height:1">⤢</span>
               <span class="ripple"></span>
@@ -2673,11 +2608,6 @@ body::after {
             <!-- Botão para fixar/desafixar na navegação -->
             <button class="btn ring fx-trans fx-press" data-act="pin" title="Fixar na barra">
               <span class="pin-icon" style="font-size:16px;line-height:1">☆</span>
-              <span class="ripple"></span>
-            </button>
-            <!-- Botão para mover entre grupos -->
-            <button class="btn ring fx-trans fx-press" data-act="move" title="Mover sessão">
-              <span style="font-size:16px;line-height:1">⇄</span>
               <span class="ripple"></span>
             </button>
             <button class="btn ring fx-trans fx-press" data-act="close" title="Fechar">
@@ -2716,44 +2646,27 @@ body::after {
       if ($('#openInside').checked && anchor) {
         anchor.prepend(card);
       } else {
-        // Se houver um grupo selecionado, adicione a sessão dentro desse grupo; caso contrário, insira no stackWrap
-        // Escolha o grupo de destino: se houver um grupo selecionado manualmente
-        // use-o; caso contrário, utilize o grupo inferido do título (a.gid).
-        const gid = window.currentGroupId || a.gid;
-        let placed = false;
-        if (gid) {
-          const grp = stackWrap && stackWrap.querySelector('.stack-group[data-group-id="' + gid + '"] .group-content');
-          if (grp) {
-            grp.prepend(card);
-            card.dataset.gid = gid;
-            placed = true;
-          }
-        }
-        if (!placed) {
-          stackWrap.prepend(card);
-          // Remova qualquer associação de grupo se a sessão não estiver atribuída
-          delete card.dataset.gid;
-        }
+        stackWrap.prepend(card);
       }
       // Não chamar applyIcons aqui: ícones embutidos manualmente nos botões de sessão
       card.querySelector('[data-act=min]').onclick = () => {
         card.classList.toggle('min');
         updateDock();
-        saveStackState();
         dualLog('Sessão minimizada: ' + (a.title || 'App'));
       };
       card.querySelector('[data-act=ref]').onclick = () => { const fr = card.querySelector('iframe'); try { fr.contentWindow.location.reload() } catch { fr.src = fr.src } };
       card.querySelector('[data-act=close]').onclick = () => {
-        // Se a sessão estiver fixada, remova-a também da lista de fixados
+        // Se estiver fixado, remova da lista de fixados
+        const meta = JSON.parse(card.dataset.meta || '{}');
         if (card.classList.contains('pinned')) {
-          removePinnedByMeta(JSON.parse(card.dataset.meta || '{}'));
+          removePinnedByMeta(meta);
         }
         card.remove();
         updateDock();
-        saveStackState();
+        updatePinnedNav();
+        // Dispare um som de fechamento, se definido
+        try { if (typeof window.playCloseSound === 'function') window.playCloseSound(); } catch(e){}
         dualLog('Sessão fechada: ' + (a.title || 'App'));
-        // Toque som de fechamento de sessão
-        try { playCloseSound(); } catch {}
       };
       // Botão tela cheia
       const fullBtn = card.querySelector('[data-act=full]');
@@ -2766,8 +2679,6 @@ body::after {
       // Botão fixar/desafixar
       const pinBtn = card.querySelector('[data-act=pin]');
       if (pinBtn) {
-        // Inicialize o estado do botão conforme o dado de entrada
-        const meta = JSON.parse(card.dataset.meta || '{}');
         if (a.pinned) {
           card.classList.add('pinned');
           pinBtn.querySelector('.pin-icon').textContent = '★';
@@ -2775,76 +2686,29 @@ body::after {
         pinBtn.onclick = () => {
           const meta = JSON.parse(card.dataset.meta || '{}');
           if (card.classList.contains('pinned')) {
-            // Desafixar
             card.classList.remove('pinned');
             pinBtn.querySelector('.pin-icon').textContent = '☆';
             removePinnedByMeta(meta);
-            // Não exiba toast ao desafixar
+            // Suprima o toast ao desafixar para evitar mensagens na tela
           } else {
-            // Fixar
             card.classList.add('pinned');
             pinBtn.querySelector('.pin-icon').textContent = '★';
             addPinned(meta);
-            // Não exiba toast ao fixar
+            // Suprima o toast ao fixar para evitar mensagens na tela
           }
         };
       }
-      // Botão mover sessão entre grupos
-      const moveBtn = card.querySelector('[data-act=move]');
-      if (moveBtn) {
-        moveBtn.onclick = () => {
-          // Liste os grupos disponíveis com seus nomes
-          const groups = Array.from(document.querySelectorAll('#stackWrap .stack-group'));
-          if (!groups.length) {
-            // Sem grupos: simplesmente remova do grupo atual, se houver
-            delete card.dataset.gid;
-            stackWrap.prepend(card);
-            saveStackState();
-            // Não exiba toast ao mover para a raiz
-            return;
-          }
-          const names = groups.map(g => g.querySelector('summary')?.textContent || '').filter(n => n);
-          const choices = names.map((n,i) => `${i+1}. ${n}`).join('\n');
-          const ans = prompt('Mover para qual grupo?\n' + choices + '\n0. Sem grupo');
-          if (ans === null) return;
-          const idx = parseInt(ans.trim(), 10);
-          if (!isNaN(idx) && idx >= 1 && idx <= groups.length) {
-            const targetGroup = groups[idx-1];
-            const content = targetGroup.querySelector('.group-content');
-            if (content) {
-              content.prepend(card);
-              card.dataset.gid = targetGroup.getAttribute('data-group-id') || '';
-              updateDock();
-              saveStackState();
-              // Não exiba toast ao mover para um grupo específico
-              return;
-            }
-          }
-          // Se o usuário digitou 0 ou algo não válido, mova para a raiz
-          delete card.dataset.gid;
-          stackWrap.prepend(card);
-          updateDock();
-          saveStackState();
-          // Não exiba toast ao mover para a raiz
-        };
-      }
-      // Não navegue automaticamente para a view Stack na versão estendida.
+      // Na versão sem Stack, não navegue automaticamente para a view de stack.
       // if (!$('#openInside').checked) nav('stack');
       updateDock();
-      // Após abrir uma sessão, persista o estado (grupos, sessões e fixados)
-      saveStackState();
+      // Atualize apps fixados na barra após abrir
+      updatePinnedNav();
+      // Dispare um som de abertura, se definido
+      try { if (typeof window.playOpenSound === 'function') window.playOpenSound(); } catch(e){}
       // Não exiba toast ao abrir uma nova sessão
       dualLog('Sessão aberta: ' + (a.title || 'App'));
-      // Toque som de abertura de app, se definido
-      try { playOpenSound(); } catch {}
     }
-    $('#btnCloseAll').onclick = () => {
-      if (!confirm('Fechar todas as sessões abertas?')) return;
-      $$('.session').forEach(s => s.remove());
-      updateDock();
-      try { saveStackState(); } catch {}
-      toast('Todas as sessões fechadas', 'warn');
-    };
+    $('#btnCloseAll').onclick = () => { if (!confirm('Fechar todas as sessões abertas?')) return; $$('.session').forEach(s => s.remove()); updateDock(); toast('Todas as sessões fechadas', 'warn'); };
 
     /* ===================== Archetypes (Central Circle) ===================== */
     (function () {
@@ -3062,12 +2926,10 @@ function pickVoice(pref) {
   try {
     const voices = speechSynthesis.getVoices();
     if (!voices || !voices.length) return null;
-    // Se houver uma preferência, tente encontrá-la pelo nome
     if (pref) {
       const found = voices.find(v => v.name && v.name.toLowerCase().includes(pref.toLowerCase()));
       if (found) return found;
     }
-    // Caso contrário, escolha uma voz em português ou a primeira disponível
     const ptVoice = voices.find(v => v.lang && v.lang.toLowerCase().startsWith('pt'));
     return ptVoice || voices[0];
   } catch (err) {
@@ -3088,17 +2950,14 @@ function speakMsg(msg, voicePref) {
 function speakSplash() {
   // Recupera o nome do usuário salvo no localStorage para personalizar a mensagem
   const name = (localStorage.getItem('infodose:userName') || '').trim();
-  // Se houver nome de usuário, use-o; caso contrário utilize "Dual" como padrão
   const msg = name ? `${name}, pulso ativo.` : 'Oi Dual, pulso ativo.';
-  // Use a voz selecionada pelo usuário no Brain, ou "Joana" como fallback
+  // Utilize a voz selecionada no Brain ou "Joana" como fallback
   const prefVoice = (localStorage.getItem('infodose:speechVoice') || '').trim() || 'Joana';
   speakMsg(msg, prefVoice);
 }
 function speakHomeGreeting() {
-  // Esta função pode ser chamada manualmente para saudar o usuário na home.
-  // Não é chamada automaticamente para evitar saudações inesperadas.
+  // Esta função está disponível para saudar o usuário na Home, mas não é chamada automaticamente.
   const assistant = (localStorage.getItem('dual.assistantName') || localStorage.getItem('infodose:assistantName') || 'Dual').trim();
-  // Determine arquétipo selecionado a partir do select (remove .html)
   let archName = '';
   const sel = document.getElementById('arch-select');
   if (sel && sel.options.length > 0) {
@@ -3116,7 +2975,7 @@ function speakHomeGreeting() {
   } else {
     msg = `Oi ${greet}, ative seu impulso configurando um arquétipo.`;
   }
-  // Use a voz salva pelo usuário ou o nome do arquétipo; se ambos vazios, use Joana
+  // A voz utilizada considera a voz salva pelo usuário ou, alternativamente, o nome do arquétipo
   const prefVoice = (localStorage.getItem('infodose:speechVoice') || '').trim();
   speakMsg(msg, archName || prefVoice || 'Joana');
 }
@@ -3225,27 +3084,22 @@ function speakHomeGreeting() {
   function openModalLS(){
     _openModalRef();
     renderLS();
-    // Preencha informações do usuário, assistente e arquétipo ativo
+    // Atualize informações de usuário, assistente e arquétipo ativo
     try {
       const uDisplay = document.getElementById('lsUserDisplay');
       const aDisplay = document.getElementById('lsAssistantDisplay');
       const archDisplay = document.getElementById('lsArchDisplay');
-      // Tente recuperar o nome do usuário das chaves salvas
       const userName = (localStorage.getItem('dual.name') || localStorage.getItem('infodose:userName') || '').trim();
       const assistantName = (localStorage.getItem('dual.assistantName') || localStorage.getItem('infodose:assistantName') || 'Dual').trim();
-      // Obtenha o arquétipo ativo a partir do seletor
       let arch = '';
       const archSel = document.getElementById('arch-select');
       if (archSel && archSel.value) arch = archSel.value.replace(/\.html$/i, '');
       if (uDisplay) uDisplay.textContent = userName || '–';
       if (aDisplay) aDisplay.textContent = assistantName || '–';
       if (archDisplay) archDisplay.textContent = arch || '–';
-    } catch {}
-    // Botão para recarregar a página
+    } catch{}
     const btnReload = document.getElementById('lsReloadPage');
-    if (btnReload) {
-      btnReload.onclick = () => { location.reload(); };
-    }
+    if (btnReload) btnReload.onclick = () => { location.reload(); };
   }
   // Redefina o evento para usar a nova função
   if (btn) btn.addEventListener('click', openModalLS);
@@ -3353,204 +3207,11 @@ function speakHomeGreeting() {
 })();
 </script>
 
-<!-- Script para ocultar o splash screen após o carregamento completo da página -->
-<!-- Script adicional para o Stacks estendido: upload de HTML e criação de grupos -->
-<script>
-(() => {
-  const uploadBtn = document.getElementById('btnStackUpload');
-  const uploadInput = document.getElementById('stackUpload');
-  if (uploadBtn && uploadInput) {
-    uploadBtn.addEventListener('click', () => uploadInput.click());
-    uploadInput.addEventListener('change', (ev) => {
-      const file = ev.target.files && ev.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = () => {
-        const content = String(reader.result || '');
-        const blob = new Blob([content], { type: 'text/html' });
-        const url = URL.createObjectURL(blob);
-        openApp({ title: file.name.replace(/\.(html?|txt)$/i,''), url });
-      };
-      reader.readAsText(file);
-      // Permite escolher o mesmo arquivo novamente
-      ev.target.value = '';
-    });
-  }
-  const btnAddGroup = document.getElementById('btnAddGroup');
-  const stackWrapEl = document.getElementById('stackWrap');
-  window.currentGroupId = null;
-  if (btnAddGroup && stackWrapEl) {
-      btnAddGroup.addEventListener('click', () => {
-      const name = prompt('Nome do grupo:');
-      if (!name) return;
-      const gid = 'g_' + Math.random().toString(36).slice(2);
-      const details = document.createElement('details');
-      details.className = 'stack-group';
-      details.setAttribute('data-group-id', gid);
-      details.open = true;
-      const summary = document.createElement('summary');
-      summary.textContent = name;
-      const content = document.createElement('div');
-      content.className = 'group-content';
-      details.appendChild(summary);
-      details.appendChild(content);
-      stackWrapEl.prepend(details);
-      window.currentGroupId = gid;
-      // Salve o estado após criar um novo grupo
-      try { saveStackState(); } catch {}
-    });
-  }
-})();
-</script>
-<script>
-window.addEventListener('load', () => {
-  const splash = document.getElementById('appSplash');
-  if (!splash) return;
-  // Reproduza o som do splash assim que a página carregar, se houver um elemento de áudio.
-  const audioElem = document.getElementById('splashSound');
-  if (audioElem) {
-    try {
-      audioElem.currentTime = 0;
-      audioElem.play().catch(() => {
-        /* Alguns navegadores bloqueiam a reprodução automática.  Ignore erros aqui. */
-      });
-    } catch (err) {}
-  }
-  // Fale durante o splash usando a síntese de voz
-  try { if (typeof speakSplash === 'function') speakSplash(); } catch {}
-  // Aguarde um breve instante após o carregamento para garantir que o loader seja exibido.
-  // Aumente este valor (ms) para manter o splash por mais tempo. Aqui usamos 1200ms (1.2s).
-  setTimeout(() => {
-    splash.classList.add('hidden');
-    // Remova o elemento do DOM após a transição de opacidade
-    setTimeout(() => {
-      if (splash && splash.parentNode) splash.parentNode.removeChild(splash);
-    }, 400);
-  }, 1200);
-});
-</script>
-
-<!-- Script para persistência de grupos/sessões e apps fixados na navegação -->
+<!-- Script para gerenciar apps fixados na versão sem Stack -->
 <script>
 (() => {
   /**
-   * Cria um grupo de stack com id e nome fornecidos. Usado ao restaurar grupos.
-   * @param {string} gid
-   * @param {string} name
-   */
-  function createStackGroup(gid, name) {
-    const stackWrapEl = document.getElementById('stackWrap');
-    if (!stackWrapEl) return;
-    const details = document.createElement('details');
-    details.className = 'stack-group';
-    details.setAttribute('data-group-id', gid);
-    details.open = true;
-    const summary = document.createElement('summary');
-    summary.textContent = name;
-    const content = document.createElement('div');
-    content.className = 'group-content';
-    details.appendChild(summary);
-    details.appendChild(content);
-    stackWrapEl.prepend(details);
-  }
-
-  /**
-   * Salva a estrutura de grupos e sessões no LocalStorage.
-   */
-  function saveStackState() {
-    try {
-      // Salve grupos
-      const groups = [];
-      document.querySelectorAll('#stackWrap .stack-group').forEach(g => {
-        const id = g.getAttribute('data-group-id');
-        const name = g.querySelector('summary')?.textContent || '';
-        if (id && name) groups.push({ id, name });
-      });
-      localStorage.setItem('unoStackGroups', JSON.stringify(groups));
-      // Salve sessões (Stack e sessionsAnchor)
-      const sess = [];
-      document.querySelectorAll('#stackWrap .session, #sessionsAnchor .session').forEach(card => {
-        const sid = card.dataset.sid;
-        const meta = card.dataset.meta;
-        const gid = card.dataset.gid || null;
-        const min = card.classList.contains('min');
-        const pinned = card.classList.contains('pinned');
-        if (sid && meta) sess.push({ sid, meta, gid, min, pinned });
-      });
-      localStorage.setItem('unoStackSessions', JSON.stringify(sess));
-    } catch (e) {
-      console.warn('Erro ao salvar estado do stack', e);
-    }
-    // Salve apps fixados (o array já está armazenado em unoPinnedApps via add/remove)
-  }
-  window.saveStackState = saveStackState;
-
-  /**
-   * Garante que existam grupos de stack correspondentes a cada categoria de apps
-   * (arquetipos).  Obtém os nomes de grupo da variável RAW.apps e cria
-   * grupos com IDs fixos baseados no nome.  Se um grupo já existir, não o
-   * duplica.  Use para organizar sessões automaticamente por arquetipo.
-   */
-  function ensureDefaultGroups() {
-    try {
-      const stackWrapEl = document.getElementById('stackWrap');
-      if (!stackWrapEl) return;
-      // Obtenha lista de nomes de grupos a partir dos apps embutidos
-      const names = {};
-      (RAW.apps || []).forEach(a => {
-        if (a && a.title && a.title.includes('·')) {
-          const parts = a.title.split('·');
-          const gName = (parts[1] || '').trim();
-          if (gName) names[gName] = true;
-        }
-      });
-      // Para cada nome, crie grupo se não existir
-      Object.keys(names).forEach(name => {
-        const gid = 'g_' + name.toLowerCase().replace(/\s+/g, '_');
-        if (!document.querySelector('#stackWrap .stack-group[data-group-id="' + gid + '"]')) {
-          createStackGroup(gid, name);
-        }
-      });
-    } catch (e) {
-      console.warn('Falha ao garantir grupos padrão', e);
-    }
-  }
-  // Exponha função globalmente para poder chamar de outros lugares
-  window.ensureDefaultGroups = ensureDefaultGroups;
-
-  /**
-   * Restaura grupos e sessões do LocalStorage.
-   */
-  function restoreStackState() {
-    try {
-      const groups = JSON.parse(localStorage.getItem('unoStackGroups') || '[]');
-      if (Array.isArray(groups)) {
-        groups.forEach(g => {
-          if (g && g.id && g.name) createStackGroup(g.id, g.name);
-        });
-      }
-      const sessions = JSON.parse(localStorage.getItem('unoStackSessions') || '[]');
-      if (Array.isArray(sessions)) {
-        sessions.forEach(s => {
-          try {
-            const meta = JSON.parse(s.meta || '{}');
-            openApp({ sid: s.sid, title: meta.title, url: meta.url, gid: s.gid, pinned: s.pinned });
-            const card = document.querySelector('[data-sid="' + s.sid + '"]');
-            if (card) {
-              if (s.min) card.classList.add('min');
-            }
-          } catch (e) {}
-        });
-      }
-    } catch (e) {
-      console.warn('Falha ao restaurar grupos/sessões', e);
-    }
-    updateDock();
-  }
-  window.restoreStackState = restoreStackState;
-
-  /**
-   * Obtém a lista de apps fixados a partir do LocalStorage.
+   * Retorna a lista de apps fixados do LocalStorage.
    * @returns {Array<{title:string,url:string}>}
    */
   function getPinnedList() {
@@ -3558,8 +3219,7 @@ window.addEventListener('load', () => {
   }
 
   /**
-   * Atualiza o LocalStorage e a UI com o novo item fixado.
-   * Evita duplicatas com base no título e URL.
+   * Adiciona um item à lista de apps fixados, evitando duplicatas.
    * @param {{title:string,url:string}} meta
    */
   function addPinned(meta) {
@@ -3588,8 +3248,7 @@ window.addEventListener('load', () => {
   window.removePinnedByMeta = removePinnedByMeta;
 
   /**
-   * Atualiza a barra de navegação para refletir os itens fixados.
-   * Cria botões dinâmicos para cada app fixado.
+   * Atualiza a barra de navegação com os apps fixados.
    */
   function updatePinnedNav() {
     const navInner = document.querySelector('.tabbar .inner');
@@ -3602,7 +3261,6 @@ window.addEventListener('load', () => {
       btn.className = 'tab fx-trans fx-press ring';
       btn.setAttribute('data-pinned', 'true');
       btn.title = item.title;
-      // Use a primeira letra do título como ícone
       const letter = (item.title || '?').trim().charAt(0).toUpperCase();
       btn.innerHTML = `<span class="pin-letter">${letter}</span><span class="ripple"></span>`;
       btn.onclick = () => {
@@ -3613,16 +3271,46 @@ window.addEventListener('load', () => {
   }
   window.updatePinnedNav = updatePinnedNav;
 
-  // Restaure o estado e pinte a navegação assim que o DOM estiver pronto
+  // Carregue apps fixados ao inicializar
   document.addEventListener('DOMContentLoaded', () => {
-    try {
-      restoreStackState();
-      updatePinnedNav();
-    } catch (e) {
-      console.warn(e);
-    }
+    updatePinnedNav();
   });
 })();
+</script>
+
+<!-- Script para ocultar o splash screen após o carregamento completo da página -->
+<script>
+window.addEventListener('load', () => {
+  const splash = document.getElementById('appSplash');
+  if (!splash) return;
+  // Reproduza o som do splash assim que a página carregar, se houver um elemento de áudio.
+  const audioElem = document.getElementById('splashSound');
+  if (audioElem) {
+    try {
+      audioElem.currentTime = 0;
+      audioElem.play().catch(() => {
+        /* Alguns navegadores bloqueiam a reprodução automática.  Ignore erros aqui. */
+      });
+    } catch (err) {}
+  }
+  // Fale durante o splash usando a síntese de voz
+  try {
+    if (typeof speakSplash === 'function') speakSplash();
+  } catch {}
+  // Em seguida, faça a saudação completa alguns instantes depois do splash
+  try {
+    if (typeof speakHomeGreeting === 'function') setTimeout(() => speakHomeGreeting(), 400);
+  } catch {}
+  // Aguarde um breve instante após o carregamento para garantir que o loader seja exibido.
+  // Aumente este valor (ms) para manter o splash por mais tempo. Aqui usamos 1200ms (1.2s).
+  setTimeout(() => {
+    splash.classList.add('hidden');
+    // Remova o elemento do DOM após a transição de opacidade
+    setTimeout(() => {
+      if (splash && splash.parentNode) splash.parentNode.removeChild(splash);
+    }, 400);
+  }, 1200);
+});
 </script>
   <!-- Sons da interface.  Coloque os arquivos em sounds/ui/*.wav conforme distribuídos no pacote UNO_UISounds_Pack_v1. -->
   <!-- Use o som Back Action como clique principal -->
@@ -3664,10 +3352,9 @@ window.addEventListener('load', () => {
       const btn = e.target.closest('.btn');
       if (btn) play('sndHover');
     }, true);
-    // Sobrescreva open/close de sessões para tocar sons
+    // Exponha funções globais para tocar sons específicos
     window.playOpenSound = () => play('sndOpen');
     window.playCloseSound = () => play('sndClose');
-    // Exponha também som especial Tech Pop
     window.playTechPopSound = () => play('sndTechPop');
   })();
   </script>
