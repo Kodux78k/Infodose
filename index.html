@@ -4235,4 +4235,340 @@ window.addEventListener('load', () => {
   <script src="dual_multiagent_v12.js"></script>
   <script src="openrouter_free_guard_v1.js" defer></script>
 </body>
+  <style>
+    /* === COMPACT VERTICAL — Mobile-first, 100% stack === */
+/* Tema mais compacto (tipografia, radius, iluminação, animações) */
+:root{
+  --radius: 12px;                /* antes: 20px */
+  --blur: 16px;                  /* antes: 24px */
+  --shadow: 0 6px 26px rgba(0,255,255,.22);
+  --fast:.12s; --med:.20s; --slow:.45s;
+  --focus-ring: 0 0 0 3px rgba(57,255,182,.22);
+  font-synthesis-weight: none;
+}
+
+/* Viewport & container: sem overflow lateral + safe-area bottom */
+html, body{ overflow-x: hidden; }
+body{ padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+.response-container{
+  width: min(100%, 100% - 0px) !important;
+  padding: 1rem 0 4rem;
+}
+
+/* Glass e micro-iluminação */
+.glass{
+  border-radius: var(--radius);
+  backdrop-filter: blur(var(--blur));
+  box-shadow: var(--shadow);
+  transition: box-shadow var(--med) ease, filter var(--med) ease, transform var(--med) ease;
+}
+.glass:hover{ filter: brightness(1.02); }
+
+/* === 1) Nada lado a lado: stack total === */
+.row, .controls, .controls .group, .kv, .panel, .stack, .dropzone .dz-area,
+.header, .sheet, .ifr, .ifr .bar{
+  display: block !important;
+}
+.row > *, .controls > *, .controls .group > *, .panel > * {
+  margin-block: .55rem;
+}
+
+/* Utilitários do pedido */
+.columns, .split{ display:block !important; }
+
+/* === 2) Qualquer grid vira 1 coluna === */
+.header, .panel, .kv, .stack,
+[class*="grid"], [style*="grid-template-columns"]{
+  grid-template-columns: 1fr !important;
+}
+
+/* === 3) Editor/Preview empilhados; Preview abaixo; alturas 50–60vh === */
+.editor{ 
+  min-height: 52svh; max-height: 60svh; 
+  width: 100%; resize: vertical; overflow: auto;
+}
+.preview, #preview{
+  display: block; margin-top: .8rem;
+  min-height: 48svh; max-height: 58svh; 
+  overflow: auto;
+}
+
+/* === 4) Navegações: horizontais, sem wrap, com rolagem === */
+/* Aplica no conjunto de chips do cabeçalho (a "nav" real deste layout) */
+.header .row.small{
+  display: flex !important; flex-direction: row; flex-wrap: nowrap !important;
+  gap: .5rem; overflow-x: auto; overflow-y: hidden; white-space: nowrap;
+  -webkit-overflow-scrolling: touch; scroll-snap-type: x proximity;
+}
+.header .row.small > *{ flex: 0 0 auto; scroll-snap-align: start; }
+
+/* === 5) Tap targets ≥ 44px === */
+:where(button, .btn, [role="button"], label, select, input, textarea, .pill){
+  min-block-size: 44px; touch-action: manipulation; -webkit-tap-highlight-color: rgba(255,255,255,.08);
+}
+.btn{
+  width: 100%; justify-content: center; text-align: center;
+  transition: transform var(--fast) ease, filter var(--fast) ease, box-shadow var(--fast) ease !important;
+}
+.btn:active{ transform: translateY(1px) scale(.995); }
+
+/* Botão flutuante: respeita safe-area */
+#btnKOBLLUX{ bottom: calc(1rem + env(safe-area-inset-bottom)); }
+
+/* === 6) Form controls full-width e acessíveis === */
+select, .select, textarea, input[type="text"], input[type="email"], input[type="search"], input[type="number"]{
+  width: 100%; max-width: 100%;
+}
+input[type="range"]{ width: 100% !important; min-block-size: 44px; }
+
+/* === 7) Listas/cards/grids respeitam pilha com scroll interno quando necessário === */
+.card, .list, .grid, .panel, .sheet, .overlay .sheet, .ifr{
+  max-height: 86svh; overflow: auto;
+}
+
+/* === 8) Sem footer fixo (se existir em outras telas) — apenas header === */
+footer{ position: static !important; inset: auto !important; }
+
+/* === 9) Pequenos ajustes específicos do arquivo === */
+/* Cabeçalho compacto */
+.header .title{ font-weight: 700; letter-spacing: .2px; }
+
+/* “Key/Value” vira linha única em vertical */
+.kv{ display: block !important; }
+.kv .muted, .kv .val{ display:block; }
+
+/* Controles do painel (modo, voz, sliders, arquétipo) em coluna 100% */
+.controls .group{ 
+  background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+  border: 1px solid rgba(255,255,255,.08);
+  padding: .6rem .7rem;
+}
+
+/* Chips “pill” mais clicáveis e densos */
+.pill{ padding: .44rem .66rem; }
+
+/* Medidor ocupa largura total */
+.meter{ width: 100%; }
+
+/* iFrame seguro empilhado (barra + frame) */
+.ifr{ grid-template-rows: auto 1fr !important; }
+.ifr .bar > *{ margin-block: .4rem; }
+
+/* === 10) Acessibilidade / motion === */
+@media (prefers-reduced-motion: reduce){
+  *{ animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; scroll-behavior: auto !important; }
+}
+  </style>
+  <style>
+    /* --------------------------------------------
+   KOBLLUX • Compact Mode — Mobile-first Vertical
+   Colar após o CSS atual
+--------------------------------------------- */
+
+/* Base compacta + segurança */
+*,
+*::before,
+*::after { box-sizing: border-box; }
+html, body { max-width: 100%; overflow-x: hidden; }
+body { padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
+
+/* Container nunca estoura, sem “gambiarra” de largura */
+.response-container {
+  inline-size: min(100%, calc(100% - 0px)) !important;
+  padding: 1rem 0 2.75rem; /* + espaço safe-area já no body */
+}
+
+/* Nada lado a lado por padrão — empilha tudo */
+.row,
+.controls,
+.kv,
+.columns,
+.split {
+  display: block !important;
+}
+
+/* Qualquer tentativa de grid vira 1 coluna */
+[class*="grid"],
+[style*="grid-template-columns"],
+.columns,
+.split,
+.panel,
+.kv {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  align-items: stretch;
+  gap: .5rem !important;
+}
+
+/* Pares “key→value” agora empilhados */
+.kv > * { margin: 0 0 .4rem 0; }
+
+/* Grupos de controles em coluna, ocupando 100% */
+.controls .group {
+  display: block !important;
+  width: 100%;
+  padding: .5rem .6rem;
+  margin: 0 0 .6rem 0;
+}
+.controls .group > label,
+.controls .group > select,
+.controls .group > input,
+.controls .group > button { display: block; width: 100%; }
+
+/* Botões e inputs: alvo de toque ≥44px */
+.btn,
+select,
+input[type="text"],
+input[type="file"],
+input[type="range"],
+input[type="checkbox"],
+input[type="radio"],
+label[for],
+textarea {
+  min-height: 44px;
+}
+
+/* Botão Único: respeita safe-area no iOS */
+#btnKOBLLUX { 
+  bottom: calc(1rem + env(safe-area-inset-bottom));
+}
+
+/* Navegações/chips SOMENTE na header: scroll horizontal, sem wrap */
+.header .row {
+  display: block !important;
+  overflow-x: auto;
+  white-space: nowrap;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: .25rem;
+  margin-bottom: .25rem;
+}
+.header .row > * {
+  display: inline-block;
+  vertical-align: top;
+  margin-right: .5rem;
+}
+
+/* Dropzone 100% vertical */
+.dropzone .dz-area { display: block !important; }
+.dropzone .row { display: block !important; }
+.dropzone .row > * { display: block; width: 100%; margin: .5rem 0 0; }
+
+/* Editor e Preview sempre empilhados (Preview abaixo)
+   Use #analysis como Preview, ou crie #preview se preferir. */
+.editor {
+  width: 100%;
+  min-height: 48vh;
+  height: 52vh;          /* alvo ~50–60vh */
+  max-height: 60vh;
+  overflow: auto;
+}
+#analysis,
+#preview {
+  display: block;
+  width: 100%;
+  min-height: 42vh;
+  height: 50vh;          /* alvo ~50–60vh */
+  max-height: 60vh;
+  overflow: auto;
+  white-space: pre-wrap;  /* evita overflow lateral */
+  word-wrap: break-word;
+}
+
+/* Cards/listas/painéis: pilha vertical com scroll interno quando necessário */
+.response-block.glass,
+.panel {
+  max-height: unset;     /* deixe rolar a página */
+}
+.panel[data-scroll],
+.response-block.glass[data-scroll],
+.card[data-scroll],
+[list][data-scroll] {
+  max-height: 60vh;
+  overflow: auto;
+}
+
+/* Controles verticais: sliders + labels exibidos em coluna */
+.controls label { margin: 0 0 .25rem 0; }
+.controls input[type="range"] { margin: .25rem 0 .5rem; }
+
+/* Sliders com preenchimento dinâmico (mantém seu gradiente) */
+input[type="range"]{
+  /* estes tokens são calculados por JS no seu app, mantidos aqui */
+  inline-size: 100%;
+}
+
+/* Toggle (Auto‑detectar): aumenta para tap ≥44px */
+#autoDetect{
+  --w: 72px; --h: 44px; --pad: 4px;
+  min-height: 44px;
+}
+
+/* SELECT e BTN ocupam a linha inteira no modo compact */
+select,
+.btn { width: 100%; }
+
+/* Grids/tabelas internas que insistem em múltiplas colunas → força 1fr */
+[role="grid"],
+[role="table"],
+table,
+.table,
+.list,
+.cards,
+.cards-grid,
+.items-grid {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+}
+
+/* Editor/Preview evitando sangrar lateralmente (longas strings/URLs) */
+.editor,
+pre { word-break: break-word; }
+
+/* Header único (nenhum footer fixo) — nenhuma regra extra de footer */
+
+/* Safe-area e “tap spacing” no rodapé de ações flutuantes/badges */
+.badge-reopen { 
+  bottom: calc(1rem + env(safe-area-inset-bottom));
+}
+
+/* Animação e sombras mais discretas (versão compact) */
+.glass { padding: .75rem .9rem; }
+.btn { padding: .7rem 1rem; }
+
+/* Scroll horizontal utilitário (caso queira aplicar em outra nav) */
+.h-scroll { overflow-x: auto; white-space: nowrap; }
+.h-scroll > * { display: inline-block; }
+
+/* Qualquer .columns e .split SEMPRE block (reforço final) */
+.columns, .split { display: block !important; }
+
+/* Segurança extra: força colunas únicas em componentes “teimosos” */
+[class*="columns-"],
+[class*="cols-"],
+[class*="grid-"] {
+  grid-template-columns: 1fr !important;
+}
+
+/* Evitar wrap de ícones/textos em chips sem quebrar layout */
+.pill { display: inline-block; }
+
+/* Garantir que iFrame seguro não crie overflow lateral */
+.ifr { inline-size: 100%; max-inline-size: 100%; }
+.ifr .bar { display: block; }
+.ifr .bar .spacer { display: none; }
+.ifr .bar .btn,
+.ifr .bar .btn.ghost { width: 100%; margin-top: .4rem; }
+
+/* Acessibilidade: foco visível “compact” */
+:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(57,255,182,.18); }
+
+/* Restrições finais — nada lado a lado fora da header */
+main .row { display: block !important; }
+main .row > * + * { margin-top: .5rem; }
+
+/* (Opcional) reduz micro gaps gerais para versão compacta */
+.stack { gap: .5rem !important; }
+    
+  </style>
 </html>
