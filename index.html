@@ -1245,6 +1245,17 @@ body::after{
 html[data-overlay="off"] body::after{ background: transparent !important; }
 html[data-overlay="off"] #arch-fadeCover{ background: transparent !important; }
 </style>
+
+<style id="particles-only-style">
+/* Partículas‑Only mode (remove ORB + Arch UI) */
+body.particles-only .orb-wrap{ display:none !important }
+body.particles-only .orb-glow{ display:none !important }
+canvas#particles{ position:fixed !important; inset:0 !important; width:100vw !important; height:100vh !important;
+  border-radius:0 !important; z-index:0 !important; pointer-events:none !important; display:block !important }
+html[data-overlay="off"] body::after{ background: transparent !important; }
+:root{ --arch-overlay-strength: 0% !important; --arch-overlay: transparent !important; }
+</style>
+
 </head>
 <body>
   <!-- Splash screen displayed on initial load -->
@@ -5019,70 +5030,56 @@ if ('serviceWorker' in navigator) {
 }
 </script>
 
-<!-- SAFE ResizeObserver helper & auto-apply for canvas elements -->
-<script>
+<script id="particles-only-init">
 (function(){
-  if(window.__createSafeResizeObserverInstalled) return;
-  window.__createSafeResizeObserverInstalled = true;
-  function createSafeResizeObserver(target, onRectChange, opts={}) {
-    if (!target) return { disconnect(){}, observe(){} };
-    if (!target.__roSafe) target.__roSafe = {};
-    const state = target.__roSafe;
-    if (state.observer) {
-      return { observe(){}, disconnect(){ state.observer.disconnect(); state.observer=null; } };
-    }
-    const DPR = Math.min(2, (window.devicePixelRatio || 1));
-    let rafId = null;
-    let diagCount = 0, diagTimer = null;
-    const applyRect = (rect) => { try { onRectChange(rect, DPR); } catch(e){ console.warn('safeRO callback error', e); } };
-    const ro = new ResizeObserver((entries) => {
-      diagCount++;
-      if (!diagTimer) {
-        diagTimer = setTimeout(() => {
-          if (opts.logHealth) console.log('[RO-Health]', diagCount <= 10 ? 'ok' : 'many', diagCount, target);
-          diagCount = 0; diagTimer = null;
-        }, 250);
-      }
-      if (!entries || !entries.length) return;
-      const rect = entries[0].contentRect;
-      if (rafId) cancelAnimationFrame(rafId);
-      rafId = requestAnimationFrame(()=> applyRect(rect));
-    });
-    ro.observe(target);
-    state.observer = ro;
-    requestAnimationFrame(() => {
-      try {
-        const rect = target.getBoundingClientRect();
-        applyRect(rect);
-      } catch(e){}
-    });
-    return {
-      observe(){ ro.observe(target); },
-      disconnect(){ try{ ro.disconnect(); }catch(e){} state.observer=null; }
-    };
-  }
-  window.createSafeResizeObserver = createSafeResizeObserver;
-
-  // Auto-apply to canvas elements to ensure safe sizing
-  document.addEventListener('DOMContentLoaded', function(){
-    try {
-      const canvases = Array.from(document.querySelectorAll('canvas'));
-      canvases.forEach(c => {
-        if (c.dataset.__roAutoApplied) return;
-        c.dataset.__roAutoApplied = '1';
-        createSafeResizeObserver(c, (rect, DPR) => {
-          const cssW = (rect && rect.width) ? rect.width : (c.clientWidth || 1);
-          const cssH = (rect && rect.height) ? rect.height : (c.clientHeight || 1);
-          const w = Math.max(1, Math.floor(cssW * DPR));
-          const h = Math.max(1, Math.floor(cssH * DPR));
-          if (c.width !== w || c.height !== h) {
-            c.width = w;
-            c.height = h;
+  try{
+    // force particles-only mode
+    window.PARTICLES_ONLY = true;
+    // small deferred init to wait for DOM/other scripts
+    const id = setInterval(()=>{
+      if(document.readyState!=='loading'){
+        clearInterval(id);
+        try{
+          document.body.classList.add('particles-only');
+          document.documentElement.style.setProperty('--arch-overlay-strength','0%');
+          document.documentElement.setAttribute('data-overlay','off');
+          // detach particles canvas and make it full-screen
+          const p = document.getElementById('particles');
+          if(p){
+            // move to body top-level so it can be full-screen independent of orb container
+            document.body.appendChild(p);
+            Object.assign(p.style, {
+              position: 'fixed', inset: '0', width: '100vw', height: '100vh',
+              borderRadius: '0', zIndex: '0', pointerEvents: 'none', display: 'block'
+            });
           }
-        }, { logHealth:false });
-      });
-    } catch(e){}
-  });
+          // hide / remove orb elements and arch UI to avoid leaks
+          const orbWrap = document.getElementById('orbWrap');
+          if(orbWrap) orbWrap.style.display = 'none';
+          const orb = document.getElementById('orb'); if(orb) orb.remove();
+          const glow = document.getElementById('orbGlow'); if(glow) glow.remove();
+          // remove picker and archetype UI nodes
+          ['homeRadial','pickerLS','pickerHome','archMenu','arch-fadeCover','arch-frame','archAudioBtn','archMenu'].forEach(id=>{
+            const n=document.getElementById(id); if(n) n.remove();
+          });
+          document.querySelectorAll('.arch-container, .arch-switcher, .arch-circle').forEach(n=>n.remove());
+          // turn off overlay visuals
+          const headStyle = document.getElementById('overlay-defaults') || document.getElementById('overlay-css-unify');
+          if(headStyle){
+            document.documentElement.style.setProperty('--arch-overlay-strength','0%');
+            document.documentElement.style.setProperty('--arch-overlay','transparent');
+          }
+          // try to persist state (if S exists)
+          try{ if(window.S){ S.ui.overlay = false; saveState && saveState(); } }catch(e){}
+          // stop orbGL activity if exposed
+          try{ if(window.__orbGL__ && typeof window.__orbGL__.setActive==='function'){ window.__orbGL__.setActive(false); } }catch(e){}
+        }catch(e){
+          console.warn('particles-only init error', e);
+        }
+      }
+    }, 30);
+  }catch(e){ console.warn('particles-only bootstrap failed', e); }
 })();
 </script>
+
 </body></html>
