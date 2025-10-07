@@ -1304,8 +1304,55 @@ body::after{
 html[data-overlay="off"] body::after{ background: transparent !important; }
 html[data-overlay="off"] #arch-fadeCover{ background: transparent !important; }
 </style>
+
+<style>
+/* --- Edge Toggles (botões fantasmas na borda) --- */
+.edge-toggle {
+  position: fixed;
+  left: max(6px, env(safe-area-inset-left));
+  width: 14px; height: 56px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,.08);
+  background: rgba(255,255,255,.04);
+  box-shadow: 0 6px 24px rgba(0,0,0,.35), inset 0 0 20px rgba(255,255,255,.05);
+  opacity: .18; transition: opacity .2s ease, transform .12s ease;
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  z-index: 120; /* acima do orb e do panel */
+  display: grid; place-items: center;
+  -webkit-tap-highlight-color: rgba(255,255,255,.1);
+}
+.edge-toggle:active { transform: scale(.98); }
+.edge-toggle:hover { opacity: .35; }
+
+/* posições verticais */
+#etNav   { top: 55vh; transform: translateY(-50%); }
+#etHead  { top: 78vh; transform: translateY(-50%); }
+
+/* ícone minimal (barra dupla / barra única) */
+.edge-toggle i {
+  display:block; width: 2px; height: 32px; position:relative;
+  background: linear-gradient(180deg, rgba(255,255,255,.25), rgba(255,255,255,.08));
+  border-radius: 2px;
+}
+.edge-toggle i::after{
+  content:""; position:absolute; left:6px; top:0; width:2px; height:32px;
+  background: linear-gradient(180deg, rgba(255,255,255,.25), rgba(255,255,255,.08));
+  border-radius:2px;
+}
+
+/* estados “escondidos” aplicados no BODY */
+body.hide-nav .options,
+body.hide-nav .btn-ctrl { display: none !important; }
+
+body.hide-header .hud-bar { display: none !important; }
+
+/* quando header some, compensa o topo no container principal */
+body.hide-header .container { padding-top: max(8px, env(safe-area-inset-top)); }
+</style>
+
 </head>
 <body>
+<div id="bgSoftOverlay" style="position:fixed;inset:0;pointer-events:none;background: radial-gradient(60% 60% at 50% 40%, rgba(255,255,255,0.04), rgba(0,0,0,0));mix-blend-mode: screen;"></div>
   <!-- Splash screen displayed on initial load -->
   
   <!-- Som do splash: coloque seu arquivo de áudio na pasta especificada e ajuste o caminho abaixo.
@@ -5178,6 +5225,680 @@ if ('serviceWorker' in navigator) {
 
 // Pulsar no clique direto no wrap
 document.getElementById('orbWrap')?.addEventListener('click', function(){ try{ window.__orbGL__ && window.__orbGL__.pulse(); }catch(_){ } });
+</script>
+
+
+<script>
+/* ================================================================
+   Dual · Particles "Cell" Renderer with Archetype Colors (Blue-1 safe)
+   - Replaces the existing #particles canvas with a new instance.
+   - Colors follow the current archetype (persisted in localStorage).
+   - Public API: window.setArchetype(name)
+   ================================================================ */
+(function(){
+  const ARCH_KEY = 'dual.archetype';           // localStorage key
+  const DEFAULT_ARCH = 'Nova';                 // default if none stored
+  // Hue palettes (center hue and spread) — tweak to your taste
+  const ARCH_PALETTES = {
+    'Nova':   { hue: 200, spread: 24 }, // ciano celeste
+    'Elysha': { hue: 280, spread: 26 }, // violeta-nebula
+    'Kaion':  { hue: 160, spread: 20 }, // verde-tec
+    'Atlas':  { hue: 30,  spread: 16 }, // âmbar/solar
+    'Serena': { hue: 320, spread: 22 }, // magenta quente
+    'Artemis':{ hue: 210, spread: 18 }, // azul profundo
+    'Pulse':  { hue: 195, spread: 30 }, // aqua vivo
+    'Rhea':   { hue: 45,  spread: 18 }, // ouro suave
+    'Solus':  { hue: 12,  spread: 18 }, // coral
+    'Aion':   { hue: 260, spread: 20 }, // roxo frio
+    'Genus':  { hue: 140, spread: 18 }, // verde bio
+    'Lumine': { hue: 220, spread: 20 }  // azul-luz
+  };
+
+  // Read current archetype from localStorage
+  function getArch(){
+    try { return localStorage.getItem(ARCH_KEY) || DEFAULT_ARCH; }
+    catch(_) { return DEFAULT_ARCH; }
+  }
+  function setArch(name){
+    const key = (name||'').trim();
+    if (!ARCH_PALETTES[key]) return;
+    try { localStorage.setItem(ARCH_KEY, key); } catch(_){}
+    // recolor immediately
+    CURRENT.arch = key;
+    recolor();
+  }
+  window.setArchetype = setArch;
+  window.getArchetype = getArch;
+
+  // Obtain / replace particles canvas safely
+  const oldCanvas = document.getElementById('particles');
+  if (!oldCanvas) return;
+  const parent = oldCanvas.parentNode;
+  const clone = oldCanvas.cloneNode(true);
+  oldCanvas.replaceWith(clone);
+
+  const c = clone;
+  const ctx = c.getContext('2d', { alpha:true });
+  const dpr = Math.min(2, (window.devicePixelRatio||1));
+  let RAF = 0;
+
+  function resize(){
+    const r = c.getBoundingClientRect();
+    c.width  = Math.floor(r.width * dpr);
+    c.height = Math.floor(r.height * dpr);
+  }
+  new ResizeObserver(()=>{ resize(); }).observe(c); resize();
+
+  // "Cell": concentric membrane, cytoplasm glow, drifting organelles
+  const CURRENT = {
+    arch: getArch(),
+    t0: performance.now(),
+    nodes: [],
+    nucleus: { wobbleA: Math.random()*6.28, wobbleB: Math.random()*6.28 }
+  };
+
+  const N = 96; // particles (organelles)
+  function palette(){
+    const p = ARCH_PALETTES[CURRENT.arch] || ARCH_PALETTES[DEFAULT_ARCH];
+    return p;
+  }
+  function rand(min, max){ return min + Math.random()*(max-min); }
+
+  function seed(){
+    CURRENT.nodes = Array.from({length:N}, ()=>{
+      const a  = Math.random()*Math.PI*2;
+      const rr = 0.30 + Math.random()*0.58; // keep inner space for nucleus
+      const s  = (0.15 + Math.random()*0.65) * (Math.random()<0.5?-1:1);
+      const z  = 0.45 + Math.random()*0.55;
+      return { a, r: rr, s, z, hueOffset: rand(-1,1), drift: rand(0.8,1.6) };
+    });
+  }
+  seed();
+
+  function recolor(){
+    // noop: colors are computed per-frame from CURRENT.arch
+  }
+
+  function draw(now){
+    const t = now || performance.now();
+    const dt = t - CURRENT.t0;
+
+    ctx.clearRect(0,0,c.width,c.height);
+    ctx.save();
+    ctx.translate(c.width/2, c.height/2);
+    ctx.globalCompositeOperation = 'lighter';
+
+    const scl = Math.min(c.width, c.height)/2;
+
+    // Cell membrane (rim)
+    (()=>{
+      const grd = ctx.createRadialGradient(0,0, scl*0.15, 0,0, scl*0.98);
+      const P = palette();
+      const h = P.hue;
+      grd.addColorStop(0.00, `hsla(${h}, 90%, 65%, .06)`);
+      grd.addColorStop(0.55, `hsla(${h}, 90%, 55%, .10)`);
+      grd.addColorStop(0.87, `hsla(${h}, 90%, 60%, .16)`);
+      grd.addColorStop(1.00, `hsla(${h}, 90%, 65%, 0)`);
+      ctx.fillStyle = grd;
+      ctx.beginPath(); ctx.arc(0,0, scl*0.98, 0, Math.PI*2); ctx.fill();
+    })();
+
+    // Cytoplasm faint noise swirl
+    (()=>{
+      const swirl = Math.sin(t*0.0013)*0.04;
+      ctx.rotate(swirl);
+      ctx.globalAlpha = 0.08;
+      const P = palette();
+      const h = P.hue + 12;
+      for (let i=0;i<6;i++){
+        const r = scl*(0.25 + i*0.12);
+        ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2);
+        ctx.strokeStyle = `hsla(${h},70%,60%,${0.08 - i*0.01})`;
+        ctx.lineWidth = 2 * (c.width/800);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+      ctx.rotate(-swirl);
+    })();
+
+    // Nucleus (soft pulsing)
+    (()=>{
+      const P = palette();
+      const h = P.hue - 10;
+      const wob = Math.sin(t*0.0016 + CURRENT.nucleus.wobbleA)*0.02 + Math.sin(t*0.0011 + CURRENT.nucleus.wobbleB)*0.015;
+      const r  = scl*(0.18 + wob);
+      const g  = ctx.createRadialGradient(0,0, 0, 0,0, r*1.55);
+      g.addColorStop(0.00, `hsla(${h}, 95%, 75%, .55)`);
+      g.addColorStop(0.45, `hsla(${h}, 90%, 60%, .18)`);
+      g.addColorStop(1.00, `hsla(${h}, 85%, 55%, 0)`);
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.fill();
+    })();
+
+    // Organelles (drifting particles)
+    const P = palette();
+    for(const n of CURRENT.nodes){
+      const ang = n.a + t*0.00025*n.s;
+      const rr  = n.r * (0.72 + 0.12*Math.sin(t*0.001 + n.a));
+      const x = Math.cos(ang)*rr*scl;
+      const y = Math.sin(ang)*rr*scl*0.98;
+      const rad = (1.0 + n.z*1.6) * (c.width/900);
+      const hue = P.hue + n.hueOffset * P.spread;
+
+      const g = ctx.createRadialGradient(x,y,0,x,y,rad*4.2);
+      g.addColorStop(0, `hsla(${hue}, 90%, 70%, .88)`);
+      g.addColorStop(1, `hsla(${hue}, 85%, 50%, 0)`);
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(x,y,rad,0,Math.PI*2); ctx.fill();
+    }
+
+    ctx.restore();
+    RAF = requestAnimationFrame(draw);
+  }
+
+  function boot(){
+    cancelAnimationFrame(RAF);
+    RAF = requestAnimationFrame(draw);
+  }
+
+  // If a global archetype selector exists elsewhere, hook it:
+  document.addEventListener('archetype:change', (ev)=>{
+    const name = ev && ev.detail && ev.detail.name;
+    if (name && ARCH_PALETTES[name]) setArch(name);
+  });
+
+  // expose lightweight API
+  window.DUAL_ARCH = {
+    set: setArch,
+    get: getArch,
+    palettes: ARCH_PALETTES
+  };
+
+  // Start with last used or default
+  recolor();
+  boot();
+})();
+</script>
+
+
+<!-- Edge toggles: navegação (nave) e header -->
+<button id="etNav"  class="edge-toggle" aria-label="Alternar navegação" title="Mostrar/ocultar navegação">
+  <i></i>
+</button>
+<button id="etHead" class="edge-toggle" aria-label="Alternar header" title="Mostrar/ocultar header">
+  <i></i>
+</button>
+
+
+<script>
+(function(){
+  const KEY_NAV  = 'dual.ui.hideNav';
+  const KEY_HEAD = 'dual.ui.hideHeader';
+
+  const $ = (s)=> document.querySelector(s);
+  let etNav, etHead;
+
+  function vibrate(ms=12){ try{ navigator.vibrate && navigator.vibrate(ms); }catch(_){} }
+
+  function applyPersisted(){
+    try{
+      const hideNav  = localStorage.getItem(KEY_NAV)  === '1';
+      const hideHead = localStorage.getItem(KEY_HEAD) === '1';
+      document.body.classList.toggle('hide-nav', hideNav);
+      document.body.classList.toggle('hide-header', hideHead);
+    }catch(_){}
+  }
+
+  function toggleNav(){
+    document.body.classList.toggle('hide-nav');
+    const on = document.body.classList.contains('hide-nav');
+    try{ localStorage.setItem(KEY_NAV, on?'1':'0'); }catch(_){}
+    vibrate(8);
+  }
+
+  function toggleHeader(){
+    document.body.classList.toggle('hide-header');
+    const on = document.body.classList.contains('hide-header');
+    try{ localStorage.setItem(KEY_HEAD, on?'1':'0'); }catch(_){}
+    vibrate(8);
+  }
+
+  function boot(){
+    etNav  = $('#etNav');
+    etHead = $('#etHead');
+    if (etNav)  etNav.addEventListener('click', toggleNav,  {passive:true});
+    if (etHead) etHead.addEventListener('click', toggleHeader, {passive:true});
+    applyPersisted();
+    // atalhos desktop
+    document.addEventListener('keydown', (e)=>{
+      if (e.key === 'n' || e.key === 'N') toggleNav();
+      if (e.key === 'h' || e.key === 'H') toggleHeader();
+    });
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+})();
+</script>
+
+
+<script>
+/* =====================================================
+   Nexus Bind: UI flags ↔ S.state ↔ Firestore (persist)
+   - Adds S.state.ui.{hideNav, hideHeader}
+   - Mirrors to body classes
+   - Persists via saveState() when available
+   - Extends renderState + Manifesto
+   ===================================================== */
+(function(){
+  const KEY_NAV  = 'dual.ui.hideNav';
+  const KEY_HEAD = 'dual.ui.hideHeader';
+
+  // 1) Ensure S and ui bucket
+  window.S = window.S || { state:{}, config:{} };
+  const st = (S.state = S.state || {});
+  st.ui = st.ui || { hideNav:false, hideHeader:false };
+
+  // 2) Bootstrap from localStorage if not set
+  try {
+    if (localStorage.getItem(KEY_NAV)  !== null) st.ui.hideNav    = localStorage.getItem(KEY_NAV)  === '1';
+    if (localStorage.getItem(KEY_HEAD) !== null) st.ui.hideHeader = localStorage.getItem(KEY_HEAD) === '1';
+  } catch(_){}
+
+  // 3) Helpers
+  function applyBody(){
+    document.body.classList.toggle('hide-nav', !!S.state.ui.hideNav);
+    document.body.classList.toggle('hide-header', !!S.state.ui.hideHeader);
+  }
+  function persist(){
+    try {
+      localStorage.setItem(KEY_NAV,  S.state.ui.hideNav ? '1':'0');
+      localStorage.setItem(KEY_HEAD, S.state.ui.hideHeader ? '1':'0');
+    } catch(_){}
+    if (typeof window.saveState === 'function'){
+      try { saveState(S.state); } catch(_){}
+    }
+  }
+
+  // 4) Wire edge toggle buttons to S.state (overwrite handlers if exist)
+  function wireEdge(){
+    const etNav  = document.getElementById('etNav');
+    const etHead = document.getElementById('etHead');
+    if (etNav){
+      etNav.onclick = function(){
+        S.state.ui.hideNav = !S.state.ui.hideNav;
+        applyBody(); persist();
+        try{ navigator.vibrate && navigator.vibrate(8);}catch(_){}
+      };
+    }
+    if (etHead){
+      etHead.onclick = function(){
+        S.state.ui.hideHeader = !S.state.ui.hideHeader;
+        applyBody(); persist();
+        try{ navigator.vibrate && navigator.vibrate(8);}catch(_){}
+      };
+    }
+  }
+
+  // 5) Patch renderState to always apply UI flags
+  const prevRender = window.renderState;
+  window.renderState = function patchedRenderState(){
+    if (typeof prevRender === 'function') prevRender.apply(this, arguments);
+    // ensure UI classes
+    applyBody();
+    // also keep Manifesto fresh if open
+    if (S.state.manifestoOpen && typeof window.renderManifestoContent === 'function'){
+      try{ renderManifestoContent(); }catch(_){}
+    }
+  };
+  window.renderState.__uiBound = true;
+
+  // 6) Extend Manifesto content to show flags (wrap original)
+  const prevManifesto = window.renderManifestoContent;
+  window.renderManifestoContent = function patchedManifesto(){
+    if (typeof prevManifesto === 'function') prevManifesto.apply(this, arguments);
+    try{
+      const el = document.getElementById('manifestoStatus');
+      if (!el) return;
+      const uiInfo = document.createElement('div');
+      uiInfo.style.marginTop = '10px';
+      uiInfo.innerHTML = `
+        <h3 class="text-nebula-m" style="margin:.75rem 0 .35rem;font-weight:800">UI Flags</h3>
+        <ul class="text-sm" style="display:grid;gap:8px;list-style:none;padding:0;margin:0">
+          <li style="display:flex;justify-content:space-between;align-items:center;background:var(--glass);padding:10px;border:1px solid var(--ring);border-radius:12px">
+            <span>Ocultar Navegação</span><span style="color:${S.state.ui.hideNav?'var(--ok)':'var(--muted)'}">${S.state.ui.hideNav?'ATIVO':'INATIVO'}</span></li>
+          <li style="display:flex;justify-content:space-between;align-items:center;background:var(--glass);padding:10px;border:1px solid var(--ring);border-radius:12px">
+            <span>Ocultar Header</span><span style="color:${S.state.ui.hideHeader?'var(--ok)':'var(--muted)'}">${S.state.ui.hideHeader?'ATIVO':'INATIVO'}</span></li>
+        </ul>`;
+      el.appendChild(uiInfo);
+    }catch(_){}
+  };
+
+  // 7) Initial apply
+  applyBody();
+  // Try wire after DOM ready
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wireEdge);
+  else wireEdge();
+})();
+</script>
+
+
+<script>
+/* =====================================================
+   Archetype Sync ↔ S.state ↔ localStorage ↔ Firestore
+   - Ensures S.state.archetype exists
+   - Wraps DUAL_ARCH.set to persist + saveState()
+   - Reconciles on boot and when remote state changes
+   - Shows in Manifesto
+   ===================================================== */
+(function(){
+  const ARCH_KEY = 'dual.archetype';
+  const DEFAULT  = 'Nova';
+
+  // 1) Ensure S and archetype field
+  window.S = window.S || { state:{}, config:{} };
+  const st = (S.state = S.state || {});
+  if (typeof st.archetype === 'undefined'){
+    // bootstrap from localStorage or renderer (DUAL_ARCH) or default
+    let bootArch = DEFAULT;
+    try{
+      const ls = localStorage.getItem(ARCH_KEY);
+      if (ls) bootArch = ls;
+    }catch(_){}
+    if (window.DUAL_ARCH && typeof DUAL_ARCH.get === 'function'){
+      try { bootArch = DUAL_ARCH.get() || bootArch; } catch(_){}
+    }
+    st.archetype = bootArch;
+  }
+
+  // 2) Helper: persist to LS + Firestore
+  function persistArch(name){
+    // localStorage
+    try{ localStorage.setItem(ARCH_KEY, name); }catch(_){}
+    // Firestore (if available)
+    if (typeof window.saveState === 'function'){
+      try{ saveState(S.state); }catch(_){}
+    }
+  }
+
+  // 3) Wrap DUAL_ARCH.set to also update S.state
+  if (window.DUAL_ARCH && typeof DUAL_ARCH.set === 'function'){
+    const prevSet = DUAL_ARCH.set;
+    DUAL_ARCH.set = function(name){
+      const res = prevSet.apply(this, arguments);
+      if (name && typeof name === 'string'){
+        S.state.archetype = name;
+        persistArch(name);
+        // If you want Manifesto to refresh live:
+        if (S.state.manifestoOpen && typeof window.renderManifestoContent === 'function'){
+          try{ renderManifestoContent(); }catch(_){}
+        }
+      }
+      return res;
+    };
+  }
+
+  // 4) Also wrap window.setArchetype if present
+  if (typeof window.setArchetype === 'function'){
+    const prev = window.setArchetype;
+    window.setArchetype = function(name){
+      const res = prev.apply(this, arguments);
+      if (name && typeof name === 'string'){
+        S.state.archetype = name;
+        persistArch(name);
+        if (S.state.manifestoOpen && typeof window.renderManifestoContent === 'function'){
+          try{ renderManifestoContent(); }catch(_){}
+        }
+      }
+      return res;
+    };
+  }
+
+  // 5) Reconcile particles renderer with S.state on boot
+  function reconcile(){
+    const target = S.state.archetype || DEFAULT;
+    if (window.DUAL_ARCH && typeof DUAL_ARCH.get === 'function' && typeof DUAL_ARCH.set === 'function'){
+      try{
+        if (DUAL_ARCH.get() !== target){
+          DUAL_ARCH.set(target);
+        }
+      }catch(_){}
+    }
+  }
+
+  // 6) Patch renderState so archetype is always consistent after any remote merge
+  const prevRender = window.renderState;
+  window.renderState = function patchedRenderState(){
+    if (typeof prevRender === 'function') prevRender.apply(this, arguments);
+    reconcile();
+  };
+
+  // 7) Extend Manifesto output with Archetype line
+  const prevManifesto = window.renderManifestoContent;
+  window.renderManifestoContent = function patchedManifesto(){
+    if (typeof prevManifesto === 'function') prevManifesto.apply(this, arguments);
+    const el = document.getElementById('manifestoStatus');
+    if (!el) return;
+    const info = document.createElement('div');
+    info.style.marginTop = '10px';
+    info.innerHTML = `
+      <h3 class="text-nebula-m" style="margin:.75rem 0 .35rem;font-weight:800">Arquetipo Atual</h3>
+      <div class="text-sm" style="display:flex;justify-content:space-between;align-items:center;background:var(--glass);padding:10px;border:1px solid var(--ring);border-radius:12px">
+        <span>Nome</span><span style="color:var(--ok)">${(S.state.archetype||'Nova')}</span>
+      </div>`;
+    el.appendChild(info);
+  };
+
+  // 8) Initial reconcile
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', reconcile);
+  else reconcile();
+})();
+</script>
+
+
+<script>
+/* =====================================================
+   Archetype Chips + Theme + Logs (LS Panel + Nexus)
+   - Renders chips in LS Panel (top) and Manifesto
+   - Themes via :root --nebA/--nebB per archetype
+   - Logs changes to Firestore (if online)
+   ===================================================== */
+(function(){
+  const THEME = {
+    'Nova':   { nebA:'#7a3cff', nebB:'#00e5ff' },
+    'Elysha': { nebA:'#b05bff', nebB:'#7ad3ff' },
+    'Kaion':  { nebA:'#34d399', nebB:'#22d3ee' },
+    'Atlas':  { nebA:'#f59e0b', nebB:'#f97316' },
+    'Serena': { nebA:'#ff72c6', nebB:'#7aa2ff' },
+    'Artemis':{ nebA:'#0ea5e9', nebB:'#1d4ed8' },
+    'Pulse':  { nebA:'#06b6d4', nebB:'#22d3ee' },
+    'Rhea':   { nebA:'#facc15', nebB:'#f59e0b' },
+    'Solus':  { nebA:'#fb7185', nebB:'#f97316' },
+    'Aion':   { nebA:'#8b5cf6', nebB:'#60a5fa' },
+    'Genus':  { nebA:'#10b981', nebB:'#22c55e' },
+    'Lumine': { nebA:'#60a5fa', nebB:'#22d3ee' }
+  };
+
+  // 1) Theme apply
+  function applyThemeFor(name){
+  const t = THEME[name] || THEME['Nova'];
+  const root = document.documentElement;
+  root.style.setProperty('--nebA', t.nebA);
+  root.style.setProperty('--nebB', t.nebB);
+  // derive background trio from theme (cooler and darker mix)
+  function mix(a,b,p){ // a,b hex '#rrggbb' ; p 0..1 toward b
+    function hex2(c){c=c.replace('#','');return [parseInt(c.slice(0,2),16),parseInt(c.slice(2,4),16),parseInt(c.slice(4,6),16)];}
+    function hx(n){n=Math.max(0,Math.min(255,Math.round(n)));return n.toString(16).padStart(2,'0');}
+    const A=hex2(a), B=hex2(b);
+    const r=A[0]+(B[0]-A[0])*p, g=A[1]+(B[1]-A[1])*p, b2=A[2]+(B[2]-A[2])*p;
+    return '#'+hx(r)+hx(g)+hx(b2);
+  }
+  const baseDark = '#07080d';
+  const midDark  = '#0c0f22';
+  const topTint  = mix(t.nebA, t.nebB, 0.35);
+  const midTint  = mix(midDark, t.nebB, 0.18);
+  root.style.setProperty('--bgA', topTint);
+  root.style.setProperty('--bgB', midTint);
+  root.style.setProperty('--bgC', baseDark);
+}
+
+  // 2) Firestore log (if online)
+  async function logArchetypeChange(name, origin){
+    try{
+      if (!window.db || !window.userId || !window.appId) return;
+      // dynamic import of firestore helpers in a module-like way using global import()
+      // (works in modern browsers; fallback is to skip logging)
+      const { collection, addDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js');
+      const path = `/artifacts/${window.appId}/users/${window.userId}/events`;
+      const col = collection(window.db, path);
+      await addDoc(col, {
+        type: 'archetype.change',
+        name: name,
+        origin: origin || 'local',
+        at: serverTimestamp ? serverTimestamp() : (new Date()).toISOString()
+      });
+      console.log('[LOG] archetype change logged:', name, origin);
+    }catch(e){
+      console.warn('[LOG] archetype change skipped:', e);
+    }
+  }
+
+  // 3) Extend DUAL_ARCH wiring to theme + log
+  function wireSet(){
+    if (!(window.DUAL_ARCH && typeof DUAL_ARCH.set === 'function')) return;
+    const prev = DUAL_ARCH.set;
+    DUAL_ARCH.set = function(name, origin='local'){
+      const res = prev.apply(this, [name]);
+      try{
+        if (name){
+          applyThemeFor(name);
+          // mirror into S.state (if not already via previous patch)
+          window.S = window.S || { state:{}, config:{} };
+          S.state = S.state || {};
+          S.state.archetype = name;
+          // persist (previous patch already handles saveState/localStorage)
+          if (typeof window.saveState === 'function'){ try{ saveState(S.state); }catch(_){ } }
+          // log
+          logArchetypeChange(name, origin);
+          // refresh manifesto if open
+          if (S.state.manifestoOpen && typeof window.renderManifestoContent === 'function'){
+            try{ renderManifestoContent(); }catch(_){}
+          }
+        }
+      }catch(_){}
+      return res;
+    };
+  }
+  wireSet();
+
+  // 4) Re-apply theme on boot (current archetype)
+  function bootTheme(){
+    const name = (window.S && S.state && S.state.archetype) || (window.DUAL_ARCH && DUAL_ARCH.get && DUAL_ARCH.get()) || 'Nova';
+    applyThemeFor(name);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bootTheme);
+  else bootTheme();
+
+  // 5) Chips UI (LS Panel + Manifesto)
+  function archetypeNames(){
+    if (window.DUAL_ARCH && DUAL_ARCH.palettes) return Object.keys(DUAL_ARCH.palettes);
+    return Object.keys(THEME);
+  }
+
+  function chip(name){
+    const b = document.createElement('button');
+    b.className = 'arch-chip';
+    b.textContent = name;
+    b.setAttribute('aria-label', 'Ativar arquétipo '+name);
+    b.onclick = ()=> { window.DUAL_ARCH && DUAL_ARCH.set(name, 'local'); };
+    return b;
+  }
+
+  function ensureChipStyles(){
+    if (document.getElementById('archChipStyles')) return;
+    const st = document.createElement('style');
+    st.id = 'archChipStyles';
+    st.textContent = `
+      .arch-chip-wrap{ display:grid; grid-auto-flow: row; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap:8px; }
+      .arch-chip{ appearance:none; border:1px solid var(--ring); background: var(--glass); color: var(--txt);
+        padding:8px 10px; border-radius:999px; font-size:12px; letter-spacing:.2px; cursor:pointer; }
+      .arch-chip:hover{ background: rgba(255,255,255,.10); }
+      .arch-chip-title{ font-size:12px; color: var(--muted); margin: 6px 0 6px; }
+    `;
+    document.head.appendChild(st);
+  }
+
+  function injectChipsIntoLSPanel(){
+    ensureChipStyles();
+    const content = document.getElementById('panelContent');
+    if (!content) return;
+    // avoid duplicating
+    if (document.getElementById('archChipSection')) return;
+    const sec = document.createElement('div');
+    sec.id = 'archChipSection';
+    sec.className = 'mod-section';
+    const title = document.createElement('div');
+    title.className = 'arch-chip-title';
+    title.textContent = 'Arquétipos';
+    const wrap = document.createElement('div');
+    wrap.className = 'arch-chip-wrap';
+    (archetypeNames()).forEach(n=> wrap.appendChild(chip(n)));
+    sec.appendChild(title);
+    sec.appendChild(wrap);
+    // prepend to LS Panel content
+    content.prepend(sec);
+  }
+
+  // Hook renderSecundaryPanel to inject chips whenever LS Panel renderiza
+  (function hookLS(){
+    const retry = ()=> setTimeout(hookLS, 160);
+    if (typeof window.renderSecundaryPanel !== 'function') return retry();
+    if (window.renderSecundaryPanel.__archChipHooked) return;
+    const orig = window.renderSecundaryPanel;
+    window.renderSecundaryPanel = function(){
+      const r = orig.apply(this, arguments);
+      try{ injectChipsIntoLSPanel(); }catch(_){}
+      return r;
+    };
+    window.renderSecundaryPanel.__archChipHooked = true;
+  })();
+
+  // Also add chips into Manifesto (small strip)
+  (function hookManifesto(){
+    const prev = window.renderManifestoContent;
+    window.renderManifestoContent = function(){
+      if (typeof prev === 'function') prev.apply(this, arguments);
+      try{
+        ensureChipStyles();
+        const el = document.getElementById('manifestoStatus');
+        if (!el || document.getElementById('archChipStrip')) return;
+        const box = document.createElement('div');
+        box.id = 'archChipStrip';
+        box.style.marginTop = '10px';
+        box.innerHTML = `<h3 class="text-nebula-m" style="margin:.75rem 0 .35rem;font-weight:800">Trocar Arquétipo</h3>`;
+        const wrap = document.createElement('div'); wrap.className = 'arch-chip-wrap';
+        (archetypeNames()).forEach(n=> wrap.appendChild(chip(n)));
+        box.appendChild(wrap);
+        el.appendChild(box);
+      }catch(_){}
+    };
+  })();
+
+  // 6) If remote state merges change S.state.archetype, theme + log it as 'remote'
+  document.addEventListener('archetype:remote-merge', (e)=>{
+    const name = e && e.detail && e.detail.name;
+    if (!name) return;
+    if (window.DUAL_ARCH && typeof DUAL_ARCH.set === 'function'){
+      DUAL_ARCH.set(name, 'remote');
+    } else {
+      applyThemeFor(name);
+      logArchetypeChange(name, 'remote');
+    }
+  });
+
+  // Optionally, if you detect remote merges elsewhere (onSnapshot), you can dispatch:
+  // document.dispatchEvent(new CustomEvent('archetype:remote-merge', { detail:{ name: S.state.archetype } }));
+})();
 </script>
 
 </body></html>
