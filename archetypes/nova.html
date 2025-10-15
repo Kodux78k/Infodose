@@ -1,59 +1,180 @@
-<!doctype html><meta charset="utf-8"><title>Ritual Nova</title>
-<style>
-  :root{ --acc:#b7ffea; --acc2:#7fd2ff; --ok:#d7b5ff; --speed:6s; }
-  html,body{height:100%}
-  body{margin:0;background:#0a0b13;color:#ecf0ff;font:16px/1.4 system-ui;overflow:hidden}
-  .stage{position:fixed;inset:0;display:grid;place-items:center;contain:paint}
-  .core{width:260px;height:260px;border-radius:50%;position:relative;
-        background:radial-gradient(circle at 30% 30%, var(--ok), var(--acc) 60%, transparent 62%),
-                   conic-gradient(var(--acc), var(--acc2), var(--ok), var(--acc));
-        filter:drop-shadow(0 0 24px var(--acc)) drop-shadow(0 0 42px var(--acc2));
-        animation:spin var(--speed) linear infinite}
-  @keyframes spin{to{transform:rotate(360deg)}}
-  .p{position:absolute; width:8px;height:8px; border-radius:50%; background:var(--ok); opacity:.9}
-  .p:nth-child(odd){ background:var(--acc2) }
-  .label{position:fixed; inset:auto 0 22px; text-align:center; opacity:.75}
-
-  .fx-flare .core{ animation: spin var(--speed) linear infinite, flare 2.5s ease-in-out infinite }
-  @keyframes flare{ 0%{filter:drop-shadow(0 0 18px var(--acc))} 50%{filter:drop-shadow(0 0 36px var(--acc2))} 100%{filter:drop-shadow(0 0 18px var(--acc))} }
-  .fx-iris .core{ box-shadow: inset 0 0 40px #000; background:
-     radial-gradient(circle at 50% 50%, #0006 0% 20%, transparent 20%),
-     conic-gradient(var(--acc), var(--acc2), var(--ok), var(--acc)); }
-  .fx-warp .p{ animation: warp 2.8s ease-in-out infinite }
-  @keyframes warp{0%{transform:translate(0,0) scale(.7)}50%{transform:translate(24px,-24px) scale(1.1)}100%{transform:translate(0,0) scale(.7)}}
-</style>
-<div class="stage fx-fade">
-  <div class="core"></div>
-</div>
-<div class="label">Ritual • Nova</div>
-
-
-<script>
-// Added interactive features: cycle animation effects and speak description.
-(function(){
-  const archetypes = {"luxara": {"desc": "Luxara incentiva você a energizar sua luz interior e harmonizar opostos.", "tips": ["Explore novas perspectivas com curiosidade.", "Use sua luz para iluminar desafios ao seu redor.", "Procure equilíbrio entre ação e reflexão."], "effects": ["fx-flare", "fx-iris", "fx-warp", "fx-fade"]}, "aion": {"desc": "Aion convida à contemplação do tempo, ciclos e ritmos pessoais.", "tips": ["Reserve momentos para refletir sobre suas jornadas.", "Sincronize metas com o ritmo natural do seu corpo.", "Valorize cada segundo – a percepção de tempo é flexível."], "effects": ["fx-iris", "fx-warp", "fx-flare", "fx-fade"]}, "atlas": {"desc": "Atlas inspira planejamento, estrutura e construção de caminhos.", "tips": ["Divida objetivos grandes em ações menores e alcançáveis.", "Mapa mental: desenhe as etapas de sua próxima conquista.", "Reflita sobre o que sustenta suas responsabilidades."], "effects": ["fx-warp", "fx-flare", "fx-iris", "fx-fade"]}, "nova": {"desc": "Nova incentiva a geração de ideias e conexões criativas.", "tips": ["Escreva uma lista de dez ideias sem julgá-las.", "Assista ou leia algo fora da sua área para ter insights.", "Combine conceitos distantes para inovar."], "effects": ["fx-fade", "fx-flare", "fx-iris", "fx-warp"]}, "genus": {"desc": "Genus lembra você de explorar origens, identidade e propósito.", "tips": ["Reflita sobre sua história e como ela molda seus objetivos.", "Converse com alguém sobre heranças culturais.", "Escreva um manifesto pessoal de valores."], "effects": ["fx-iris", "fx-flare", "fx-warp", "fx-fade"]}, "rhea": {"desc": "Rhea destaca o cuidado, a nutrição e a conexão com o coletivo.", "tips": ["Pratique um ato de gentileza hoje.", "Cuidar de si é fundamental para cuidar dos outros.", "Construa redes de apoio mútuo."], "effects": ["fx-fade", "fx-iris", "fx-flare", "fx-warp"]}, "elysha": {"desc": "Elysha desperta intuições e estimula insights criativos.", "tips": ["Medite por cinco minutos em silêncio.", "Faça um desenho livre sem objetivo definido.", "Confie no primeiro pensamento que surgir."], "effects": ["fx-flare", "fx-fade", "fx-iris", "fx-warp"]}, "horus": {"desc": "Horus simboliza visão, proteção e perspectiva ampla.", "tips": ["Observe seu dia de cima, como um pássaro.", "Planeje estratégias levando em conta o longo prazo.", "Proteja seus projetos definindo limites claros."], "effects": ["fx-iris", "fx-flare", "fx-warp", "fx-fade"]}, "kaion": {"desc": "Kaion harmoniza equilíbrio e transformação constante.", "tips": ["Reconheça ciclos em sua vida e abrace mudanças.", "Equilibre obrigações e prazeres de maneira saudável.", "Pratique flexibilidade frente ao inesperado."], "effects": ["fx-warp", "fx-iris", "fx-flare", "fx-fade"]}, "kaos": {"desc": "Kaos incentiva a abraçar a desordem como fonte de criatividade.", "tips": ["Liberte-se de rotinas rígidas por um dia.", "Transforme erros em oportunidades de aprendizado.", "Experimente algo que te tire da zona de conforto."], "effects": ["fx-warp", "fx-flare", "fx-iris", "fx-fade"]}, "ignyra": {"desc": "Ignyra acende paixão, energia e impulso criativo.", "tips": ["Defina uma meta ousada e dê o primeiro passo agora.", "Pratique um exercício físico breve para energizar-se.", "Concentre-se no que te faz vibrar."], "effects": ["fx-flare", "fx-warp", "fx-iris", "fx-fade"]}, "lumine": {"desc": "Lumine traz claridade, otimismo e iluminação pessoal.", "tips": ["Liste três coisas pelas quais você é grato hoje.", "Abra as janelas e deixe a luz entrar.", "Ilumine o caminho de alguém com um elogio sincero."], "effects": ["fx-flare", "fx-fade", "fx-iris", "fx-warp"]}};
-  const name = (document.title.replace(/Ritual\s+/i,'') || '').trim().toLowerCase();
-  const stage = document.querySelector('.stage');
-  const label = document.querySelector('.label');
-  if(!stage || !label) return;
-  const data = archetypes[name] || {desc:'',tips:[],effects:['fx-flare','fx-iris','fx-warp','fx-fade']};
-  const tip = data.tips.length ? data.tips[Math.floor(Math.random()*data.tips.length)] : '';
-  label.textContent = label.textContent + (tip ? ' — '+tip : '');
-  let idx = 0;
-  stage.addEventListener('click',()=>{
-    data.effects.forEach(cls=> stage.classList.remove(cls));
-    idx = (idx + 1) % data.effects.length;
-    stage.classList.add(data.effects[idx]);
-  });
-  label.style.cursor = 'pointer';
-  label.addEventListener('click',()=>{
-    try{
-      const u = new SpeechSynthesisUtterance(data.desc);
-      const voices = speechSynthesis.getVoices().filter(v=>v.lang.startsWith('pt')||v.lang.startsWith('en'));
-      if(voices.length) u.voice = voices[0];
-      speechSynthesis.cancel();
-      speechSynthesis.speak(u);
-    }catch(e){}
-  });
-})();
-</script>
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Nova · Matrix ASCII</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: transparent;
+      overflow: hidden;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .circle {
+      position: relative;
+      width: 280px;
+      height: 280px;
+      border-radius: 50%;
+      animation: spin 20s linear infinite;
+    }
+    .letter {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      font-family: monospace;
+      font-size: 18px;
+      font-weight: bold;
+      color: #f472b6;
+      transform-origin: center;
+      animation: fadeOut 2.5s ease-in-out infinite;
+      opacity: 0.8;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    @keyframes fadeOut {
+      0% { opacity: 0.2; }
+      50% { opacity: 1; }
+      100% { opacity: 0.2; }
+    }
+  </style>
+</head>
+<body>
+  <div class="circle">
+    
+        <div class="letter" style="
+          transform: rotate(0.0deg) translateX(120px) rotate(-0.0deg);
+          animation-delay: 0.0s;">0</div>
+        
+        <div class="letter" style="
+          transform: rotate(11.25deg) translateX(120px) rotate(-11.25deg);
+          animation-delay: 0.05s;">1</div>
+        
+        <div class="letter" style="
+          transform: rotate(22.5deg) translateX(120px) rotate(-22.5deg);
+          animation-delay: 0.1s;">&</div>
+        
+        <div class="letter" style="
+          transform: rotate(33.75deg) translateX(120px) rotate(-33.75deg);
+          animation-delay: 0.15s;">$</div>
+        
+        <div class="letter" style="
+          transform: rotate(45.0deg) translateX(120px) rotate(-45.0deg);
+          animation-delay: 0.2s;">#</div>
+        
+        <div class="letter" style="
+          transform: rotate(56.25deg) translateX(120px) rotate(-56.25deg);
+          animation-delay: 0.25s;">@</div>
+        
+        <div class="letter" style="
+          transform: rotate(67.5deg) translateX(120px) rotate(-67.5deg);
+          animation-delay: 0.3s;">∴</div>
+        
+        <div class="letter" style="
+          transform: rotate(78.75deg) translateX(120px) rotate(-78.75deg);
+          animation-delay: 0.35s;">∵</div>
+        
+        <div class="letter" style="
+          transform: rotate(90.0deg) translateX(120px) rotate(-90.0deg);
+          animation-delay: 0.4s;">*</div>
+        
+        <div class="letter" style="
+          transform: rotate(101.25deg) translateX(120px) rotate(-101.25deg);
+          animation-delay: 0.45s;">+</div>
+        
+        <div class="letter" style="
+          transform: rotate(112.5deg) translateX(120px) rotate(-112.5deg);
+          animation-delay: 0.5s;">=</div>
+        
+        <div class="letter" style="
+          transform: rotate(123.75deg) translateX(120px) rotate(-123.75deg);
+          animation-delay: 0.55s;">○</div>
+        
+        <div class="letter" style="
+          transform: rotate(135.0deg) translateX(120px) rotate(-135.0deg);
+          animation-delay: 0.6s;">●</div>
+        
+        <div class="letter" style="
+          transform: rotate(146.25deg) translateX(120px) rotate(-146.25deg);
+          animation-delay: 0.65s;">•</div>
+        
+        <div class="letter" style="
+          transform: rotate(157.5deg) translateX(120px) rotate(-157.5deg);
+          animation-delay: 0.7s;">▲</div>
+        
+        <div class="letter" style="
+          transform: rotate(168.75deg) translateX(120px) rotate(-168.75deg);
+          animation-delay: 0.75s;">▼</div>
+        
+        <div class="letter" style="
+          transform: rotate(180.0deg) translateX(120px) rotate(-180.0deg);
+          animation-delay: 0.8s;">※</div>
+        
+        <div class="letter" style="
+          transform: rotate(191.25deg) translateX(120px) rotate(-191.25deg);
+          animation-delay: 0.85s;">†</div>
+        
+        <div class="letter" style="
+          transform: rotate(202.5deg) translateX(120px) rotate(-202.5deg);
+          animation-delay: 0.9s;">Ω</div>
+        
+        <div class="letter" style="
+          transform: rotate(213.75deg) translateX(120px) rotate(-213.75deg);
+          animation-delay: 0.95s;">Σ</div>
+        
+        <div class="letter" style="
+          transform: rotate(225.0deg) translateX(120px) rotate(-225.0deg);
+          animation-delay: 1.0s;">ψ</div>
+        
+        <div class="letter" style="
+          transform: rotate(236.25deg) translateX(120px) rotate(-236.25deg);
+          animation-delay: 1.05s;">π</div>
+        
+        <div class="letter" style="
+          transform: rotate(247.5deg) translateX(120px) rotate(-247.5deg);
+          animation-delay: 1.1s;">δ</div>
+        
+        <div class="letter" style="
+          transform: rotate(258.75deg) translateX(120px) rotate(-258.75deg);
+          animation-delay: 1.15s;">φ</div>
+        
+        <div class="letter" style="
+          transform: rotate(270.0deg) translateX(120px) rotate(-270.0deg);
+          animation-delay: 1.2s;">χ</div>
+        
+        <div class="letter" style="
+          transform: rotate(281.25deg) translateX(120px) rotate(-281.25deg);
+          animation-delay: 1.25s;">0</div>
+        
+        <div class="letter" style="
+          transform: rotate(292.5deg) translateX(120px) rotate(-292.5deg);
+          animation-delay: 1.3s;">1</div>
+        
+        <div class="letter" style="
+          transform: rotate(303.75deg) translateX(120px) rotate(-303.75deg);
+          animation-delay: 1.35s;">&</div>
+        
+        <div class="letter" style="
+          transform: rotate(315.0deg) translateX(120px) rotate(-315.0deg);
+          animation-delay: 1.4s;">$</div>
+        
+        <div class="letter" style="
+          transform: rotate(326.25deg) translateX(120px) rotate(-326.25deg);
+          animation-delay: 1.45s;">#</div>
+        
+        <div class="letter" style="
+          transform: rotate(337.5deg) translateX(120px) rotate(-337.5deg);
+          animation-delay: 1.5s;">@</div>
+        
+        <div class="letter" style="
+          transform: rotate(348.75deg) translateX(120px) rotate(-348.75deg);
+          animation-delay: 1.55s;">∴</div>
+        
+  </div>
+</body>
+</html>
