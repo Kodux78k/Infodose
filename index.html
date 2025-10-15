@@ -352,7 +352,7 @@ body::after{content:'';position:fixed;inset:0;background:none !important;pointer
     .badge { display: inline-flex; gap: 6px; align-items: center; padding: .38rem .65rem; border: 1px solid #ffffff18; background: #0f1428; border-radius: 999px; font-weight: 800; position: relative }
     .badge.fx-trans:hover { box-shadow: 0 10px 24px rgba(0,0,0,.5) }
     nav.tabbar { position: fixed; left: 0; right: 0; bottom: env(safe-area-inset-bottom, 0); height: var(--tabsH); z-index: 1500; display: flex; justify-content: center; padding: 6px 14px }
-    .tabbar .inner { width: 100%; max-width: 820px; display: flex; justify-content: space-around; align-items: center; background: var(--surface); border: var(--bd); border-radius: 22px; box-shadow: var(--shadow); padding: 10px 14px }
+    .tabbar .inner { width: 100%; max-width: 820px; display: flex; justify-content: space-around; align-items: center; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.14); backdrop-filter: blur(10px); border: var(--bd); border-radius: 22px; box-shadow: var(--shadow); padding: 10px 14px }
     .tab { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; color: var(--mut); font-size: 11px; font-weight: 800; padding: 8px; border-radius: 14px; cursor: pointer; position: relative }
     .tab.fx-trans:hover { background: rgba(255,255,255,.06) }
     .tab.active { color: var(--fg); background: rgba(255,255,255,.10); box-shadow: 0 0 0 2px rgba(255,255,255,.10) }
@@ -1305,54 +1305,257 @@ html[data-overlay="off"] body::after{ background: transparent !important; }
 html[data-overlay="off"] #arch-fadeCover{ background: transparent !important; }
 </style>
 
-<style>
-/* --- Edge Toggles (botões fantasmas na borda) --- */
-.edge-toggle {
-  position: fixed;
-  left: max(6px, env(safe-area-inset-left));
-  width: 14px; height: 56px;
-  border-radius: 12px;
-  border: 1px solid rgba(255,255,255,.08);
-  background: rgba(255,255,255,.04);
-  box-shadow: 0 6px 24px rgba(0,0,0,.35), inset 0 0 20px rgba(255,255,255,.05);
-  opacity: .18; transition: opacity .2s ease, transform .12s ease;
-  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-  z-index: 120; /* acima do orb e do panel */
-  display: grid; place-items: center;
-  -webkit-tap-highlight-color: rgba(255,255,255,.1);
+<style id="orb-slot-css">
+/* === ORB Slot (iframe "dentro" do orbe) === */
+.arch-circle { position: relative; }
+#orbWrap { position: relative; }
+#orbWrap canvas#orb,
+#orbWrap .orb-glow,
+#orbWrap .ring,
+#orbWrap canvas#particles { position: absolute; inset: 0; }
+
+/* Z-order for sandwiching */
+#orbWrap canvas#orb { z-index: 1; }
+#orbWrap .orb-glow { z-index: 2; }
+#orbWrap .orb-slot   { z-index: 3; } /* iframe masked */
+#orbWrap canvas#particles { z-index: 4; }
+#orbWrap .ring { z-index: 5; }
+/* HUB overlays keep above */
+#arch-fadeCover, #audioRipple { z-index: 6; }
+
+/* Masked slot inside the orb */
+.orb-slot{
+  position:absolute;
+  inset: 8%;              /* adjust 6–10% to taste */
+  border-radius: 50%;
+  overflow: hidden;
+  -webkit-clip-path: circle(50% at 50% 50%);
+          clip-path: circle(50% at 50% 50%);
+  mix-blend-mode: screen;
+  opacity: .92;
+  filter: saturate(1.06) contrast(1.04);
+  will-change: transform, opacity, filter;
+  pointer-events: auto;   /* allow interaction inside the archetype app */
 }
-.edge-toggle:active { transform: scale(.98); }
-.edge-toggle:hover { opacity: .35; }
-
-/* posições verticais */
-#etNav   { top: 55vh; transform: translateY(-50%); }
-#etHead  { top: 78vh; transform: translateY(-50%); }
-
-/* ícone minimal (barra dupla / barra única) */
-.edge-toggle i {
-  display:block; width: 2px; height: 32px; position:relative;
-  background: linear-gradient(180deg, rgba(255,255,255,.25), rgba(255,255,255,.08));
-  border-radius: 2px;
+.orb-slot iframe#arch-frame{
+  position:absolute; inset:0;
+  width:100%; height:100%;
+  border:0; background:#0b0f14; /* avoid white flash */
+  transform: translateZ(0);
 }
-.edge-toggle i::after{
-  content:""; position:absolute; left:6px; top:0; width:2px; height:32px;
-  background: linear-gradient(180deg, rgba(255,255,255,.25), rgba(255,255,255,.08));
-  border-radius:2px;
+/* Tint with archetype overlay color */
+.orb-slot::after{
+  content:"";
+  position:absolute; inset:0;
+  background: var(--arch-overlay, transparent);
+  pointer-events:none;
+  mix-blend-mode: overlay;
+  opacity:.35;
+  transition: opacity .25s ease;
 }
-
-/* estados “escondidos” aplicados no BODY */
-body.hide-nav .options,
-body.hide-nav .btn-ctrl { display: none !important; }
-
-body.hide-header .hud-bar { display: none !important; }
-
-/* quando header some, compensa o topo no container principal */
-body.hide-header .container { padding-top: max(8px, env(safe-area-inset-top)); }
 </style>
 
+
+<style id="hdpro-override">
+
+/* === HD•PRO Override (Dual UNO) ==============================
+   - Handle (quase invisível) para abrir/fechar LS Panel (#brain)
+   - Painel "HD Pro" dentro do LS Panel (estatísticas + ações)
+   - Metrificadores animados de Storage (LocalStorage/IndexedDB/Total)
+   - Toggle para colapsar opções avançadas do ORB/FPS
+   ================================================================= */
+:root{
+  --hdpro-glass: rgba(12,16,24,.64);
+  --hdpro-line: 1px solid rgba(143,211,255,.14);
+  --hdpro-ok: var(--ok, #39ffb6);
+  --hdpro-warn: var(--warn, #ffb86b);
+  --hdpro-err: var(--err, #ff6b6b);
+}
+
+/* Botão/área de pega "tango" (quase invisível) */
+#lsHandle{
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 8px) + 6px);
+  left: 8px;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.18);
+  box-shadow: 0 8px 20px rgba(0,0,0,.45);
+  opacity: .14;
+  z-index: 1600;
+  transition: opacity .18s ease, transform .18s ease, background .18s ease;
+  backdrop-filter: blur(6px);
+}
+#lsHandle:hover, #lsHandle:active{ opacity:.42; transform: scale(1.06); }
+#lsHandle.on{ opacity:.8; background: rgba(57,255,182,.25); }
+
+/* Painel HD Pro embutido no LS (#brain .popover) */
+.hdpro-sec{
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 16px;
+  background: var(--hdpro-glass);
+  border: var(--hdpro-line);
+  box-shadow: 0 10px 24px rgba(0,0,0,.35);
+}
+.hdpro-sec .sec-hdr{
+  display:flex; align-items:center; justify-content:space-between;
+  gap:10px; margin-bottom:8px;
+}
+.hdpro-sec .sec-hdr h3{
+  margin:0; font-weight:900; font-size:14px; letter-spacing:.04em;
+}
+.hdpro-grid{
+  display:grid; grid-template-columns: 1fr; gap:10px;
+}
+.hdpro-row{ display:grid; grid-template-columns: 1fr auto; gap:8px; align-items:center; }
+.hdpro-actions{ display:flex; gap:8px; flex-wrap:wrap; }
+
+/* Meters */
+.hdpro-meter{
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 10px;
+  overflow: hidden;
+  height: 14px;
+  position: relative;
+}
+.hdpro-meter .bar{
+  position:absolute; left:0; top:0; height:100%;
+  width:0%;
+  background: linear-gradient(90deg, var(--grad-a), var(--grad-b));
+  transition: width .8s cubic-bezier(.22,.61,.36,1);
+  box-shadow: inset 0 0 12px rgba(0,0,0,.25);
+}
+.hdpro-label{ font-size:12px; color: var(--mut, rgba(245,247,255,.68)); }
+.hdpro-val{ font-size:12px; font-weight:800; }
+
+/* Toggle de avançados ORB/FPS */
+.hdpro-toggle{
+  display:flex; align-items:center; gap:8px;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 12px; padding: 8px 10px;
+  font-size:12px; font-weight:800;
+  cursor:pointer;
+}
+.hdpro-adv-hidden{ display:none !important; }
+
+/* Botões compactos coerentes com tema */
+.hd-btn{ 
+  background: linear-gradient(180deg, rgba(13,22,34,.7), rgba(9,14,22,.7));
+  border: 1px solid rgba(143,211,255,.18);
+  color: var(--fg);
+  border-radius: 12px; padding: 8px 10px; font-weight:800;
+}
+.hd-btn.danger{ border-color: rgba(255,107,107,.35); }
+.hd-btn.ok{ border-color: rgba(57,255,182,.35); }
+
+/* Toast simples */
+#hdToast{
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(14px + env(safe-area-inset-bottom, 0));
+  background: rgba(12,16,24,.92);
+  border: 1px solid rgba(255,255,255,.18);
+  color: var(--fg);
+  border-radius: 14px; padding: 10px 14px;
+  font-weight:800; font-size:12px;
+  box-shadow: 0 14px 40px rgba(0,0,0,.45);
+  z-index: 1700; opacity: 0; pointer-events: none;
+  transition: opacity .25s ease, transform .25s ease;
+}
+#hdToast.show{ opacity: 1; transform: translateX(-50%) translateY(-4px); }
+
+</style>
+<style>
+/* Gradient icon tuning (Send/Voice/Text) */
+#homeInputOverlay button svg, #homeVoiceBtn svg, #homeTextBtn svg{
+  display:block;
+}
+
+</style>
+<style>
+/* Tabbar gradient tune */
+.tabbar .tab { color: var(--muted); }
+.tabbar .tab.active { color: var(--fg); }
+.tabbar .tab svg { display:block; margin: 0 auto 2px; }
+
+</style>
+<style>
+/* Inline gradient icons — unify sizing/alignment */
+button svg, .tabbar .tab svg { display:block; }
+
+</style>
+<style id="ATOM_UI_PATCH">
+:root{ --tabsH:58px; }
+nav.tabbar{ padding:4px 12px calc(env(safe-area-inset-bottom) + 4px) }
+.tabbar .inner{ padding:8px 12px }
+.tab{ padding:6px; font-size:10px }
+.arch-circle{ position:relative; border:1px solid rgba(255,255,255,.14);
+  box-shadow: 0 18px 50px rgba(0,0,0,.55), inset 0 0 0 1px rgba(255,255,255,.06); }
+.arch-circle::after{ opacity:.6; }
+.arch-circle > canvas#atomCanvas{
+  position:absolute; inset:0; pointer-events:none; z-index:3;
+  opacity:.88; mix-blend-mode:screen; filter:saturate(120%) contrast(110%);
+}
+.arch-circle > .arch-fab{
+  position:absolute; z-index:4; top:8px; right:8px;
+  width:34px; height:34px; border-radius:999px; display:grid; place-items:center;
+  border:1px solid rgba(255,255,255,.18);
+  background:linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+  box-shadow:0 6px 16px rgba(0,0,0,.35), 0 0 0 1px rgba(255,255,255,.06) inset;
+  color:#eaf2ff; cursor:pointer; -webkit-tap-highlight-color:transparent;
+}
+.arch-circle > .arch-fab:active{ transform:translateY(1px) scale(.98) }
+.card{ box-shadow: 0 14px 40px rgba(0,0,0,.42), inset 0 0 0 1px rgba(255,255,255,.05) }
+.icon-pill{ background:rgba(15,20,34,.78); border-color:#ffffff1f }
+.icon-ghost{ color:#b9c6da }
+</style>
+
+<!-- OVERLAY: background-only patch -->
+<style id="OVERLAY_BG_ONLY">
+/* Mantém o overlay sempre no background (atrás de tudo). */
+body::after{ content:none !important; }
+/* Overlay como camada de background (1ª), gradiente Nebula/Blue atrás dela (2ª). */
+body{
+  background:
+    radial-gradient(120% 120% at 50% 40%,
+      var(--arch-overlay, rgba(0,0,0,0)) 0%,
+      rgba(0,0,0,0) 62%),
+    linear-gradient(42deg, var(--grad-a), var(--grad-b)) fixed !important;
+}
+</style>
+<script id="OVERLAY_DEFAULT_BOOT">
+// Overlay ON por padrão até o primeiro arquétipo aplicar a cor própria.
+try{ document.documentElement.style.setProperty('--arch-overlay','rgba(64,158,255,.22)'); }catch{}
+</script>
+
+<style id="CHAT13_CSS">
+.chat-wrap{display:grid;gap:12px}
+.chat-pulse{position:relative;height:10px;border-radius:999px;
+  background:linear-gradient(90deg,var(--grad-a),var(--grad-b));opacity:.8;overflow:hidden}
+.chat-pulse::after{content:"";position:absolute;inset:0;
+  background:radial-gradient(60% 120% at 0% 50%, #fff8 0%, #fff0 60%);
+  animation:pulseRun 2.8s cubic-bezier(.22,.61,.36,1) infinite}
+@keyframes pulseRun{0%{transform:translateX(-40%)}50%{transform:translateX(40%)}100%{transform:translateX(140%)}}
+
+.chat-feed{display:grid;gap:10px}
+.msg{background:var(--surface);border:var(--bd);border-radius:14px;padding:10px}
+.msg.role-user{border-color:#ffffff2a}
+.msg.role-assistant{box-shadow:0 10px 32px rgba(0,0,0,.35)}
+.msg h5{margin:.2rem 0 .35rem;font-size:12px;letter-spacing:.08em;color:var(--mut);text-transform:uppercase}
+
+.chat-composer{display:flex;gap:8px;align-items:center;position:sticky;bottom:0;
+  background:linear-gradient(180deg,rgba(0,0,0,0),rgba(0,0,0,.2));
+  padding:10px;border-radius:16px}
+.chat-composer textarea{flex:1;min-height:44px;max-height:36vh;resize:vertical;border-radius:12px;
+  padding:10px 12px;border:var(--bd);background:rgba(255,255,255,.04);color:var(--fg)}
+.chat-composer .btn{white-space:nowrap}
+</style>
 </head>
 <body>
-<div id="bgSoftOverlay" style="position:fixed;inset:0;pointer-events:none;background: radial-gradient(60% 60% at 50% 40%, rgba(255,255,255,0.04), rgba(0,0,0,0));mix-blend-mode: screen;"></div>
   <!-- Splash screen displayed on initial load -->
   
   <!-- Som do splash: coloque seu arquivo de áudio na pasta especificada e ajuste o caminho abaixo.
@@ -1361,23 +1564,63 @@ body.hide-header .container { padding-top: max(8px, env(safe-area-inset-top)); }
   <!-- ===== Header ===== -->
   <header class="mast">
     <button class="ib fx-trans fx-press ring" id="btnBack" title="Voltar" aria-label="Voltar">
-    <img src="icons/arrow-left.svg" alt="Voltar" width="20" height="20" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6/svgs/solid/arrow-left.svg'">
-      <span class="ripple"></span>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+
+  <defs>
+    <linearGradient id="gradNebulaBack" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00FFFF"/>
+      <stop offset="1" stop-color="#FF00FF"/>
+    </linearGradient>
+  </defs>
+  <polyline points="15 18 9 12 15 6" stroke="url(#gradNebulaBack)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg><span class="ripple"></span>
     </button>
     <div class="title">
       <h1>HUB UNO</h1>
       <small>Dual · Trinity</small>
     </div>
     <button class="ib fx-trans fx-press ring" id="btnDownload" title="Baixar HTML">
-<img src="icons/download.svg" alt="Download" width="20" height="20" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6/svgs/solid/download.svg'">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+
+  <defs>
+    <linearGradient id="g1" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00FFFF"/>
+      <stop offset="1" stop-color="#FF00FF"/>
+    </linearGradient>
+  </defs>
+  <path d="M12 3v10" stroke="url(#g1)" stroke-width="2" stroke-linecap="round"/>
+  <polyline points="7 11 12 16 17 11" stroke="url(#g1)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="4" y="18" width="16" height="3" rx="1.5" fill="url(#g1)" opacity=".3"/>
+</svg>
       <span class="ripple"></span>
     </button>
     <button class="ib fx-trans fx-press ring" id="btnHelp" title="Ajuda / Atalhos">
-<img src="icons/question-circle.svg" alt="Ajuda" width="20" height="20" onerror="this.onerror=null;this.src='icons/question-circle.svg'">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+
+  <defs>
+    <linearGradient id="g2" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00FFFF"/>
+      <stop offset="1" stop-color="#FF00FF"/>
+    </linearGradient>
+  </defs>
+  <circle cx="12" cy="12" r="10" stroke="url(#g2)" stroke-width="2"/>
+  <path d="M9.5 9a2.5 2.5 0 1 1 4.4 1.5c-.6.7-1.4 1-1.9 1.6-.3.3-.5.7-.5 1.4" stroke="url(#g2)" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="12" cy="18" r="1" fill="url(#g2)"/>
+</svg>
       <span class="ripple"></span>
     </button>
     <button class="ib fx-trans fx-press ring" id="btnBrain" title="Brain">
-<img src="icons/brain.svg" alt="Brain" width="20" height="20" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6/svgs/solid/brain.svg'">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+
+  <defs>
+    <linearGradient id="g3" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00FFFF"/>
+      <stop offset="1" stop-color="#FF00FF"/>
+    </linearGradient>
+  </defs>
+  <path d="M8 6a3 3 0 0 1 6 0 3 3 0 0 1 3 3 3 3 0 0 1 3 3 4 4 0 0 1-4 4H8a4 4 0 0 1-4-4 3 3 0 0 1 3-3 3 3 0 0 1 1-3z"
+    stroke="url(#g3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
       <span class="ripple"></span>
     </button>
   <button class="ib fx-trans fx-press ring" id="btnLS" title="Local Storage" aria-label="Local Storage">
@@ -1413,7 +1656,16 @@ body.hide-header .container { padding-top: max(8px, env(safe-area-inset-top)); }
               <div class="mut">Monólito: Apps embutidos + Viewer + Dock + Atalhos</div>
             </div>
             <div class="ico">
-<img src="icons/bolt.svg" alt="Energia" width="24" height="24" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6/svgs/solid/bolt.svg'">
+<svg width="24" height="24" viewBox="0 0 24 24" fill="url(#g4)" aria-hidden="true">
+
+  <defs>
+    <linearGradient id="g4" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00FFFF"/>
+      <stop offset="1" stop-color="#FF00FF"/>
+    </linearGradient>
+  </defs>
+  <path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z"/>
+</svg>
             </div>
           </div>
         </div>
@@ -1423,11 +1675,29 @@ body.hide-header .container { padding-top: max(8px, env(safe-area-inset-top)); }
                da bolinha e seguirá o layout vertical da arch-container. -->
           <div class="arch-switcher">
             <button class="btn fx-trans fx-press ring" id="arch-prev" title="Anterior">
-              <img src="icons/chevron-left.svg" alt="Anterior" width="16" height="16" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6/svgs/solid/chevron-left.svg'">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+
+  <defs>
+    <linearGradient id="g5" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00FFFF"/>
+      <stop offset="1" stop-color="#FF00FF"/>
+    </linearGradient>
+  </defs>
+  <polyline points="15 18 9 12 15 6" stroke="url(#g5)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
             <span class="ripple"></span></button>
-            <select id="arch-select" title="Escolher arquétipo"><option value="atlas.html">atlas.html</option><option value="nova.html">nova.html</option><option value="vitalis.html">vitalis.html</option><option value="pulse.html">pulse.html</option><option value="artemis.html">artemis.html</option><option value="serena.html">serena.html</option><option value="kaos.html">kaos.html</option><option value="genus.html">genus.html</option><option value="lumine.html">lumine.html</option><option value="rhea.html">rhea.html</option><option value="solus.html">solus.html</option><option value="aion.html">aion.html</option></select>
+            <select id="arch-select" title="Escolher arquétipo"><option value="./archetypes3d/value="./archetypes3d/atlas.html">atlas.html</option><option value="./archetypes3d/value="./archetypes3d/nova.html">nova.html</option><option value="./archetypes3d/value="./archetypes3d/vitalis.html">vitalis.html</option><option value="./archetypes3d/value="./archetypes3d/pulse.html">pulse.html</option><option value="./archetypes3d/value="./archetypes3d/artemis.html">artemis.html</option><option value="./archetypes3d/value="./archetypes3d/serena.html">serena.html</option><option value="./archetypes3d/value="./archetypes3d/kaos.html">kaos.html</option><option value="./archetypes3d/value="./archetypes3d/genus.html">genus.html</option><option value="./archetypes3d/value="./archetypes3d/lumine.html">lumine.html</option><option value="./archetypes3d/value="./archetypes3d/rhea.html">rhea.html</option><option value="./archetypes3d/value="./archetypes3d/solus.html">solus.html</option><option value="./archetypes3d/value="./archetypes3d/aion.html">aion.html</option></select>
             <button class="btn fx-trans fx-press ring" id="arch-next" title="Próximo">
-              <img src="icons/chevron-right.svg" alt="Próximo" width="16" height="16" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6/svgs/solid/chevron-right.svg'">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+
+  <defs>
+    <linearGradient id="g6" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00FFFF"/>
+      <stop offset="1" stop-color="#FF00FF"/>
+    </linearGradient>
+  </defs>
+  <polyline points="9 18 15 12 9 6" stroke="url(#g6)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
             <span class="ripple"></span></button>
           </div>
           <div class="arch-circle">
@@ -1450,34 +1720,101 @@ body.hide-header .container { padding-top: max(8px, env(safe-area-inset-top)); }
           <!-- Menu de arquétipos: permite acessar Apps, Stack, Usuário, Revo e Home -->
           <div id="archMenu" class="arch-menu">
             <button data-nav="apps">
-              <img src="icons/folder-open.svg" alt="Apps" width="20" height="20" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6/svgs/solid/folder-open.svg'">
-              <span>Apps</span>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+
+  <defs>
+    <linearGradient id="gradNebulaTab" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00FFFF"/>
+      <stop offset="1" stop-color="#FF00FF"/>
+    </linearGradient>
+  </defs>
+  <rect x="3" y="3" width="7" height="7" rx="2" stroke="url(#gradNebulaTab)" stroke-width="2"/>
+  <rect x="14" y="3" width="7" height="7" rx="2" stroke="url(#gradNebulaTab)" stroke-width="2"/>
+  <rect x="3" y="14" width="7" height="7" rx="2" stroke="url(#gradNebulaTab)" stroke-width="2"/>
+  <rect x="14" y="14" width="7" height="7" rx="2" stroke="url(#gradNebulaTab)" stroke-width="2"/>
+</svg><span>Apps</span>
             <span class="ripple"></span></button>
             <button data-nav="stack">
-              <img src="icons/layer-group.svg" alt="Stack" width="20" height="20" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6/svgs/solid/layer-group.svg'">
-              <span>Stack</span>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+
+  <defs>
+    <linearGradient id="gradNebulaTab" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00FFFF"/>
+      <stop offset="1" stop-color="#FF00FF"/>
+    </linearGradient>
+  </defs>
+  <polygon points="12 2 2 7 12 12 22 7 12 2" stroke="url(#gradNebulaTab)" stroke-width="2" fill="none"/>
+  <polyline points="2 12 12 17 22 12" stroke="url(#gradNebulaTab)" stroke-width="2" fill="none"/>
+  <polyline points="2 17 12 22 22 17" stroke="url(#gradNebulaTab)" stroke-width="2" fill="none"/>
+</svg><span>Stack</span>
             <span class="ripple"></span></button>
             <button data-nav="brain">
-              <img src="icons/user.svg" alt="Usuário" width="20" height="20" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6/svgs/solid/user.svg'">
-              <span>Usuário</span>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+
+  <defs>
+    <linearGradient id="gradNebulaTab" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00FFFF"/>
+      <stop offset="1" stop-color="#FF00FF"/>
+    </linearGradient>
+  </defs>
+  <path d="M8 6a3 3 0 0 1 6 0 3 3 0 0 1 3 3 3 3 0 0 1 3 3 4 4 0 0 1-4 4H8a4 4 0 0 1-4-4 3 3 0 0 1 3-3 3 3 0 0 1 1-3z"
+    stroke="url(#gradNebulaTab)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg><span>Usuário</span>
             <span class="ripple"></span></button>
             <button data-nav="home">
-              <img src="icons/yin-yang.svg" alt="Arquétipo" width="20" height="20" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6/svgs/solid/yin-yang.svg'">
-              <span>Arquétipo</span>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+
+  <defs>
+    <linearGradient id="gradNebulaTab" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00FFFF"/>
+      <stop offset="1" stop-color="#FF00FF"/>
+    </linearGradient>
+  </defs>
+  <path d="M3 10.5L12 3l9 7.5" stroke="url(#gradNebulaTab)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M5 10v10h14V10" stroke="url(#gradNebulaTab)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg><span>Arquétipo</span>
             <span class="ripple"></span></button>
             <button data-nav="chat">
-              <img src="icons/comments.svg" alt="Chat" width="20" height="20" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6/svgs/solid/comments.svg'">
-              <span>Chat</span>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+
+  <defs>
+    <linearGradient id="gradNebulaTab" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00FFFF"/>
+      <stop offset="1" stop-color="#FF00FF"/>
+    </linearGradient>
+  </defs>
+  <path d="M21 15a4 4 0 0 1-4 4H7l-4 4V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v8z"
+    stroke="url(#gradNebulaTab)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg><span>Chat</span>
             <span class="ripple"></span></button>
           <button data-audio="true" id="archAudioBtn">
-            <img src="icons/microphone-lines.svg" alt="Áudio" width="20" height="20" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6/svgs/solid/microphone-lines.svg'">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+
+  <defs>
+    <linearGradient id="g7" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00FFFF"/>
+      <stop offset="1" stop-color="#FF00FF"/>
+    </linearGradient>
+  </defs>
+  <circle cx="12" cy="12" r="9" stroke="url(#g7)" stroke-width="2"/>
+  <path d="M12 7v5l4 2" stroke="url(#g7)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
             <span>Áudio</span>
           <span class="ripple"></span></button>
           </div>
         </div><div class="cards">
           <button class="card fx-trans fx-press ring" data-nav="apps">
             <div class="ico">
-<img src="icons/folder-open.svg" alt="Apps" width="24" height="24" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6/svgs/solid/folder-open.svg'">
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+
+  <defs>
+    <linearGradient id="g8" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00FFFF"/>
+      <stop offset="1" stop-color="#FF00FF"/>
+    </linearGradient>
+  </defs>
+  <path d="M3 6h6l2 2h10v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6z" stroke="url(#g8)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
             </div>
             <div>
               <div style="font-weight:800">Apps</div>
@@ -1487,7 +1824,18 @@ body.hide-header .container { padding-top: max(8px, env(safe-area-inset-top)); }
           </button>
           <button class="card fx-trans fx-press ring" data-nav="stack">
             <div class="ico">
-<img src="icons/layer-group.svg" alt="Stack" width="24" height="24" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6/svgs/solid/layer-group.svg'">
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+
+  <defs>
+    <linearGradient id="g9" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00FFFF"/>
+      <stop offset="1" stop-color="#FF00FF"/>
+    </linearGradient>
+  </defs>
+  <polygon points="12 2 2 7 12 12 22 7 12 2" stroke="url(#g9)" stroke-width="2" fill="none"/>
+  <polyline points="2 12 12 17 22 12" stroke="url(#g9)" stroke-width="2" fill="none"/>
+  <polyline points="2 17 12 22 22 17" stroke="url(#g9)" stroke-width="2" fill="none"/>
+</svg>
             </div>
             <div>
               <div style="font-weight:800">Stack</div>
@@ -1497,7 +1845,17 @@ body.hide-header .container { padding-top: max(8px, env(safe-area-inset-top)); }
           </button>
           <button class="card fx-trans fx-press ring" data-nav="brain">
             <div class="ico">
-<img src="icons/user.svg" alt="Usuário" width="24" height="24" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6/svgs/solid/user.svg'">
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+
+  <defs>
+    <linearGradient id="g10" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00FFFF"/>
+      <stop offset="1" stop-color="#FF00FF"/>
+    </linearGradient>
+  </defs>
+  <circle cx="12" cy="8" r="4" stroke="url(#g10)" stroke-width="2"/>
+  <path d="M4 20a8 5 0 0 1 16 0" stroke="url(#g10)" stroke-width="2" stroke-linecap="round"/>
+</svg>
             </div>
             <div>
               <div style="font-weight:800">Usuário</div>
@@ -1507,7 +1865,17 @@ body.hide-header .container { padding-top: max(8px, env(safe-area-inset-top)); }
           </button>
           <button class="card fx-trans fx-press ring" data-nav="home">
             <div class="ico">
-<img src="icons/yin-yang.svg" alt="Arquétipo" width="24" height="24" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6/svgs/solid/yin-yang.svg'">
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+
+  <defs>
+    <linearGradient id="g11" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00FFFF"/>
+      <stop offset="1" stop-color="#FF00FF"/>
+    </linearGradient>
+  </defs>
+  <circle cx="12" cy="12" r="9" stroke="url(#g11)" stroke-width="2"/>
+  <path d="M12 7v5l4 2" stroke="url(#g11)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
             </div>
             <div>
               <div style="font-weight:800">Arquétipo</div>
@@ -1535,7 +1903,16 @@ body.hide-header .container { padding-top: max(8px, env(safe-area-inset-top)); }
                 <input id="openInside" type="checkbox" checked=""> abrir dentro
               </label>
               <button id="btnToggleLocal" class="btn fx-trans fx-press ring">
-                <img src="icons/folder-open.svg" alt="Locais" width="16" height="16" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6/svgs/solid/folder-open.svg'" style="margin-right:4px">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+
+  <defs>
+    <linearGradient id="g12" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00FFFF"/>
+      <stop offset="1" stop-color="#FF00FF"/>
+    </linearGradient>
+  </defs>
+  <path d="M3 6h6l2 2h10v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6z" stroke="url(#g12)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
                 Mostrar Locais<span class="ripple"></span>
               </button>
             </div>
@@ -1543,22 +1920,202 @@ body.hide-header .container { padding-top: max(8px, env(safe-area-inset-top)); }
               <!-- Aceita arquivos .json além de HTML/TXT para permitir upload de catálogos personalizados -->
               <input id="fileLocal" type="file" accept=".html,.htm,.txt,.json" multiple="" class="input ring">
               <button id="btnImport" class="btn fx-trans fx-press ring">
-                <img src="icons/plus-circle.svg" alt="Adicionar" width="16" height="16" onerror="this.onerror=null;this.src='icons/plus-circle.svg'" style="margin-right:4px">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+
+  <defs>
+    <linearGradient id="g13" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00FFFF"/>
+      <stop offset="1" stop-color="#FF00FF"/>
+    </linearGradient>
+  </defs>
+  <circle cx="12" cy="12" r="9" stroke="url(#g13)" stroke-width="2"/>
+  <path d="M12 7v5l4 2" stroke="url(#g13)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
                 Adicionar Locais<span class="ripple"></span>
               </button>
               <button id="btnExport" class="btn fx-trans fx-press ring">
-                <img src="icons/file-export.svg" alt="Exportar" width="16" height="16" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6/svgs/solid/file-export.svg'" style="margin-right:4px">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+
+  <defs>
+    <linearGradient id="g14" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00FFFF"/>
+      <stop offset="1" stop-color="#FF00FF"/>
+    </linearGradient>
+  </defs>
+  <circle cx="12" cy="12" r="9" stroke="url(#g14)" stroke-width="2"/>
+  <path d="M12 7v5l4 2" stroke="url(#g14)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
                 Exportar Locais<span class="ripple"></span>
               </button>
               <button id="btnClear" class="btn fx-trans fx-press ring">
-                <img src="icons/trash.svg" alt="Limpar" width="16" height="16" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6/svgs/solid/trash.svg'" style="margin-right:4px">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+
+  <defs>
+    <linearGradient id="g15" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00FFFF"/>
+      <stop offset="1" stop-color="#FF00FF"/>
+    </linearGradient>
+  </defs>
+  <circle cx="12" cy="12" r="9" stroke="url(#g15)" stroke-width="2"/>
+  <path d="M12 7v5l4 2" stroke="url(#g15)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
                 Limpar Locais<span class="ripple"></span>
               </button>
             </div>
             <div id="appsCount" class="mut">15 apps</div>
           </div>
         </div>
-        <div id="appsWrap" class="apps-wrap"><div class="apps-group"><h3 style="margin: 16px 4px 8px; font-size: 15px; font-weight: 800; color: var(--mut);">Ampara</h3><div class="grid"><div class="app-card fx-trans fx-lift"><button class="fav-btn"><img alt="Favorito" src="icons/star.svg"><span class="ripple"></span></button><div class="app-icon"><img alt="" width="24" height="24" src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2523f5f7ff%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%2021s-6-3.5-6-8a4%204%200%200%201%206-3%204%204%200%200%201%206%203c0%204.5-6%208-6%208z%22%2F%3E%3C%2Fsvg%3E"></div><div style="flex: 1 1 0%;"><div class="app-title" title="Serena · Ampara">Serena ·…</div><div class="mut">Acolhimento e suporte emocional.</div><button class="btn fx-trans fx-press ring">Abrir<span class="ripple"></span></button></div></div></div></div><div class="apps-group"><h3 style="margin: 16px 4px 8px; font-size: 15px; font-weight: 800; color: var(--mut);">Arcana</h3><div class="grid"><div class="app-card fx-trans fx-lift"><button class="fav-btn"><img alt="Favorito" src="icons/star.svg"><span class="ripple"></span></button><div class="app-icon"><img alt="" width="24" height="24" src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2523f5f7ff%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%203v6M12%2015v6%22%2F%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%223%22%2F%3E%3Cpath%20d%3D%22M19%205l-3%203M5%2019l3-3M5%205l3%203M19%2019l-3-3%22%2F%3E%3C%2Fsvg%3E"></div><div style="flex: 1 1 0%;"><div class="app-title" title="Solus · Arcana">Solus ·…</div><div class="mut">Harmonização energética e meditação.</div><button class="btn fx-trans fx-press ring">Abrir<span class="ripple"></span></button></div></div></div></div><div class="apps-group"><h3 style="margin: 16px 4px 8px; font-size: 15px; font-weight: 800; color: var(--mut);">Brilhare</h3><div class="grid"><div class="app-card fx-trans fx-lift"><button class="fav-btn"><img alt="Favorito" src="icons/star.svg"><span class="ripple"></span></button><div class="app-icon"><img alt="" width="24" height="24" src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2523f5f7ff%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%224%22%2F%3E%3Cpath%20d%3D%22M12%202v2M12%2020v2M2%2012h2M20%2012h2M4.9%204.9l1.4%201.4M17.7%2017.7l1.4%201.4M4.9%2019.1l1.4-1.4M17.7%206.3l1.4-1.4%22%2F%3E%3C%2Fsvg%3E"></div><div style="flex: 1 1 0%;"><div class="app-title" title="Lumine · Brilhare">Lumine ·…</div><div class="mut">Inspiração leve e atividades lúdicas.</div><button class="btn fx-trans fx-press ring">Abrir<span class="ripple"></span></button></div></div></div></div><div class="apps-group"><h3 style="margin: 16px 4px 8px; font-size: 15px; font-weight: 800; color: var(--mut);">Cartesius</h3><div class="grid"><div class="app-card fx-trans fx-lift"><button class="fav-btn"><img alt="Favorito" src="icons/star.svg"><span class="ripple"></span></button><div class="app-icon"><img alt="" width="24" height="24" src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2523f5f7ff%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%229%22%2F%3E%3Cpath%20d%3D%22M3%2012h18M12%203v18%22%2F%3E%3Cpath%20d%3D%22M5%208c3%202%2011%202%2014%200M5%2016c3-2%2011-2%2014%200%22%2F%3E%3C%2Fsvg%3E"></div><div style="flex: 1 1 0%;"><div class="app-title" title="Atlas · Cartesius">Atlas ·…</div><div class="mut">Planejador estratégico com cronogramas e checklists.</div><button class="btn fx-trans fx-press ring">Abrir<span class="ripple"></span></button></div></div></div></div><div class="apps-group"><h3 style="margin: 16px 4px 8px; font-size: 15px; font-weight: 800; color: var(--mut);">Disruptor</h3><div class="grid"><div class="app-card fx-trans fx-lift"><button class="fav-btn"><img alt="Favorito" src="icons/star.svg"><span class="ripple"></span></button><div class="app-icon"><img alt="" width="24" height="24" src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2523f5f7ff%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M4%204l7%207-7%207%22%2F%3E%3Cpath%20d%3D%22M20%204l-7%207%207%207%22%2F%3E%3C%2Fsvg%3E"></div><div style="flex: 1 1 0%;"><div class="app-title" title="Kaos · Disruptor">Kaos ·…</div><div class="mut">Questiona padrões e propõe soluções ousadas.</div><button class="btn fx-trans fx-press ring">Abrir<span class="ripple"></span></button></div></div></div></div><div class="apps-group"><h3 style="margin: 16px 4px 8px; font-size: 15px; font-weight: 800; color: var(--mut);">Evolutia</h3><div class="grid"><div class="app-card fx-trans fx-lift"><button class="fav-btn"><img alt="Favorito" src="icons/star.svg"><span class="ripple"></span></button><div class="app-icon"><img alt="" width="24" height="24" src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2523f5f7ff%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M7%2012c0-2.2%201.8-4%204-4%201.2%200%202.3.5%203%201.3M17%2012c0%202.2-1.8%204-4%204-1.2%200-2.3-.5-3-1.3%22%2F%3E%3Cpath%20d%3D%22M3%2012h4M17%2012h4%22%2F%3E%3C%2Fsvg%3E"></div><div style="flex: 1 1 0%;"><div class="app-title" title="Aion · Evolutia">Aion ·…</div><div class="mut">Microações estratégicas e evolução.</div><button class="btn fx-trans fx-press ring">Abrir<span class="ripple"></span></button></div></div></div></div><div class="apps-group"><h3 style="margin: 16px 4px 8px; font-size: 15px; font-weight: 800; color: var(--mut);">Fabricus</h3><div class="grid"><div class="app-card fx-trans fx-lift"><button class="fav-btn"><img alt="Favorito" src="icons/star.svg"><span class="ripple"></span></button><div class="app-icon"><img alt="" width="24" height="24" src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2523f5f7ff%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Crect%20x%3D%227%22%20y%3D%227%22%20width%3D%2210%22%20height%3D%2210%22%20rx%3D%222%22%2F%3E%3Cpath%20d%3D%22M7%207l5-3%205%203M17%2017l-5%203-5-3%22%2F%3E%3C%2Fsvg%3E"></div><div style="flex: 1 1 0%;"><div class="app-title" title="Genus · Fabricus">Genus ·…</div><div class="mut">Protótipos e materialização de ideias.</div><button class="btn fx-trans fx-press ring">Abrir<span class="ripple"></span></button></div></div></div></div><div class="apps-group"><h3 style="margin: 16px 4px 8px; font-size: 15px; font-weight: 800; color: var(--mut);">Inspira</h3><div class="grid"><div class="app-card fx-trans fx-lift"><button class="fav-btn"><img alt="Favorito" src="icons/star.svg"><span class="ripple"></span></button><div class="app-icon"><img alt="" width="24" height="24" src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2523f5f7ff%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%202v4M12%2018v4M2%2012h4M18%2012h4%22%2F%3E%3Cpath%20d%3D%22M5.6%205.6l2.8%202.8M15.6%2015.6l2.8%202.8M18.4%205.6l-2.8%202.8M8.4%2015.6l-2.8%202.8%22%2F%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%223%22%2F%3E%3C%2Fsvg%3E"></div><div style="flex: 1 1 0%;"><div class="app-title" title="Nova · Inspira">Nova ·…</div><div class="mut">Criativa que desbloqueia ideias com mapas mentais e exercícios.</div><button class="btn fx-trans fx-press ring">Abrir<span class="ripple"></span></button></div></div></div></div><div class="apps-group"><h3 style="margin: 16px 4px 8px; font-size: 15px; font-weight: 800; color: var(--mut);">Momentum</h3><div class="grid"><div class="app-card fx-trans fx-lift"><button class="fav-btn"><img alt="Favorito" src="icons/star.svg"><span class="ripple"></span></button><div class="app-icon"><img alt="" width="24" height="24" src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2523f5f7ff%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M3%2012h4l2-5%204%2010%202-5h6%22%2F%3E%3Cpath%20d%3D%22M13%203l-2%204%203%201-2%204%22%2F%3E%3C%2Fsvg%3E"></div><div style="flex: 1 1 0%;"><div class="app-title" title="Vitalis · Momentum">Vitalis ·…</div><div class="mut">Rotinas físicas, hacks biológicos e motivação.</div><button class="btn fx-trans fx-press ring">Abrir<span class="ripple"></span></button></div></div></div></div><div class="apps-group"><h3 style="margin: 16px 4px 8px; font-size: 15px; font-weight: 800; color: var(--mut);">Naviga</h3><div class="grid"><div class="app-card fx-trans fx-lift"><button class="fav-btn"><img alt="Favorito" src="icons/star.svg"><span class="ripple"></span></button><div class="app-icon"><img alt="" width="24" height="24" src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2523f5f7ff%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M3%2012h12%22%2F%3E%3Cpath%20d%3D%22M13%206l6%206-6%206%22%2F%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%229%22%2F%3E%3C%2Fsvg%3E"></div><div style="flex: 1 1 0%;"><div class="app-title" title="Artemis · Naviga">Artemis ·…</div><div class="mut">Explora conhecimentos e rotas de aprendizado.</div><button class="btn fx-trans fx-press ring">Abrir<span class="ripple"></span></button></div></div></div></div><div class="apps-group"><h3 style="margin: 16px 4px 8px; font-size: 15px; font-weight: 800; color: var(--mut);">Outros</h3><div class="grid"><div class="app-card fx-trans fx-lift"><button class="fav-btn"><img alt="Favorito" src="icons/star.svg"><span class="ripple"></span></button><div class="app-icon"><img alt="" width="24" height="24" src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2523f5f7ff%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%229%22%2F%3E%3Cpath%20d%3D%22M3%2012h18M12%203v18%22%2F%3E%3Cpath%20d%3D%22M5%208c3%202%2011%202%2014%200M5%2016c3-2%2011-2%2014%200%22%2F%3E%3C%2Fsvg%3E"></div><div style="flex: 1 1 0%;"><div class="app-title" title="Dual_esqueci">Dual_esqueci</div><div class="mut">HTML local</div><button class="btn fx-trans fx-press ring">Abrir<span class="ripple"></span></button></div></div><div class="app-card fx-trans fx-lift"><button class="fav-btn"><img alt="Favorito" src="icons/star.svg"><span class="ripple"></span></button><div class="app-icon"><img alt="" width="24" height="24" src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2523f5f7ff%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%229%22%2F%3E%3Cpath%20d%3D%22M3%2012h18M12%203v18%22%2F%3E%3Cpath%20d%3D%22M5%208c3%202%2011%202%2014%200M5%2016c3-2%2011-2%2014%200%22%2F%3E%3C%2Fsvg%3E"></div><div style="flex: 1 1 0%;"><div class="app-title" title="index_kobllux_voicefix">index_kobllux_voicefix</div><div class="mut">HTML local</div><button class="btn fx-trans fx-press ring">Abrir<span class="ripple"></span></button></div></div><div class="app-card fx-trans fx-lift"><button class="fav-btn"><img alt="Favorito" src="icons/star.svg"><span class="ripple"></span></button><div class="app-icon"><img alt="" width="24" height="24" src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2523f5f7ff%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%229%22%2F%3E%3Cpath%20d%3D%22M3%2012h18M12%203v18%22%2F%3E%3Cpath%20d%3D%22M5%208c3%202%2011%202%2014%200M5%2016c3-2%2011-2%2014%200%22%2F%3E%3C%2Fsvg%3E"></div><div style="flex: 1 1 0%;"><div class="app-title" title="index-100">index-100</div><div class="mut">HTML local</div><button class="btn fx-trans fx-press ring">Abrir<span class="ripple"></span></button></div></div></div></div><div class="apps-group"><h3 style="margin: 16px 4px 8px; font-size: 15px; font-weight: 800; color: var(--mut);">Raízes</h3><div class="grid"><div class="app-card fx-trans fx-lift"><button class="fav-btn"><img alt="Favorito" src="icons/star.svg"><span class="ripple"></span></button><div class="app-icon"><img alt="" width="24" height="24" src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2523f5f7ff%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%203v6%22%2F%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%229%22%20r%3D%224%22%2F%3E%3Cpath%20d%3D%22M12%2013v2l-2%202M12%2015l2%202M12%2017v3%22%2F%3E%3C%2Fsvg%3E"></div><div style="flex: 1 1 0%;"><div class="app-title" title="Rhea · Raízes">Rhea ·…</div><div class="mut">Vínculos e memórias emocionais.</div><button class="btn fx-trans fx-press ring">Abrir<span class="ripple"></span></button></div></div></div></div><div class="apps-group"><h3 style="margin: 16px 4px 8px; font-size: 15px; font-weight: 800; color: var(--mut);">Resona</h3><div class="grid"><div class="app-card fx-trans fx-lift"><button class="fav-btn"><img alt="Favorito" src="icons/star.svg"><span class="ripple"></span></button><div class="app-icon"><img alt="" width="24" height="24" src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2523f5f7ff%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M2%2012h3l2-4%203%208%202-4h8%22%2F%3E%3Cpath%20d%3D%22M20%208v-3M20%2019v-3%22%2F%3E%3C%2Fsvg%3E"></div><div style="flex: 1 1 0%;"><div class="app-title" title="Pulse · Resona">Pulse ·…</div><div class="mut">Trilhas sonoras e ajuste de som emocional.</div><button class="btn fx-trans fx-press ring">Abrir<span class="ripple"></span></button></div></div></div></div></div>
+        <div id="appsWrap" class="apps-wrap"><div class="apps-group"><h3 style="margin: 16px 4px 8px; font-size: 15px; font-weight: 800; color: var(--mut);">Ampara</h3><div class="grid"><div class="app-card fx-trans fx-lift"><button class="fav-btn"><svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+
+  <defs>
+    <linearGradient id="g16" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00FFFF"/>
+      <stop offset="1" stop-color="#FF00FF"/>
+    </linearGradient>
+  </defs>
+  <circle cx="12" cy="12" r="9" stroke="url(#g16)" stroke-width="2"/>
+  <path d="M12 7v5l4 2" stroke="url(#g16)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg><span class="ripple"></span></button><div class="app-icon"><img alt="" width="24" height="24" src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2523f5f7ff%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%2021s-6-3.5-6-8a4%204%200%200%201%206-3%204%204%200%200%201%206%203c0%204.5-6%208-6%208z%22%2F%3E%3C%2Fsvg%3E"></div><div style="flex: 1 1 0%;"><div class="app-title" title="Serena · Ampara">Serena ·…</div><div class="mut">Acolhimento e suporte emocional.</div><button class="btn fx-trans fx-press ring">Abrir<span class="ripple"></span></button></div></div></div></div><div class="apps-group"><h3 style="margin: 16px 4px 8px; font-size: 15px; font-weight: 800; color: var(--mut);">Arcana</h3><div class="grid"><div class="app-card fx-trans fx-lift"><button class="fav-btn"><svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+
+  <defs>
+    <linearGradient id="g17" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00FFFF"/>
+      <stop offset="1" stop-color="#FF00FF"/>
+    </linearGradient>
+  </defs>
+  <circle cx="12" cy="12" r="9" stroke="url(#g17)" stroke-width="2"/>
+  <path d="M12 7v5l4 2" stroke="url(#g17)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg><span class="ripple"></span></button><div class="app-icon"><img alt="" width="24" height="24" src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2523f5f7ff%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%203v6M12%2015v6%22%2F%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%223%22%2F%3E%3Cpath%20d%3D%22M19%205l-3%203M5%2019l3-3M5%205l3%203M19%2019l-3-3%22%2F%3E%3C%2Fsvg%3E"></div><div style="flex: 1 1 0%;"><div class="app-title" title="Solus · Arcana">Solus ·…</div><div class="mut">Harmonização energética e meditação.</div><button class="btn fx-trans fx-press ring">Abrir<span class="ripple"></span></button></div></div></div></div><div class="apps-group"><h3 style="margin: 16px 4px 8px; font-size: 15px; font-weight: 800; color: var(--mut);">Brilhare</h3><div class="grid"><div class="app-card fx-trans fx-lift"><button class="fav-btn"><svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+
+  <defs>
+    <linearGradient id="g18" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00FFFF"/>
+      <stop offset="1" stop-color="#FF00FF"/>
+    </linearGradient>
+  </defs>
+  <circle cx="12" cy="12" r="9" stroke="url(#g18)" stroke-width="2"/>
+  <path d="M12 7v5l4 2" stroke="url(#g18)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg><span class="ripple"></span></button><div class="app-icon"><img alt="" width="24" height="24" src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2523f5f7ff%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%224%22%2F%3E%3Cpath%20d%3D%22M12%202v2M12%2020v2M2%2012h2M20%2012h2M4.9%204.9l1.4%201.4M17.7%2017.7l1.4%201.4M4.9%2019.1l1.4-1.4M17.7%206.3l1.4-1.4%22%2F%3E%3C%2Fsvg%3E"></div><div style="flex: 1 1 0%;"><div class="app-title" title="Lumine · Brilhare">Lumine ·…</div><div class="mut">Inspiração leve e atividades lúdicas.</div><button class="btn fx-trans fx-press ring">Abrir<span class="ripple"></span></button></div></div></div></div><div class="apps-group"><h3 style="margin: 16px 4px 8px; font-size: 15px; font-weight: 800; color: var(--mut);">Cartesius</h3><div class="grid"><div class="app-card fx-trans fx-lift"><button class="fav-btn"><svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+
+  <defs>
+    <linearGradient id="g19" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00FFFF"/>
+      <stop offset="1" stop-color="#FF00FF"/>
+    </linearGradient>
+  </defs>
+  <circle cx="12" cy="12" r="9" stroke="url(#g19)" stroke-width="2"/>
+  <path d="M12 7v5l4 2" stroke="url(#g19)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg><span class="ripple"></span></button><div class="app-icon"><img alt="" width="24" height="24" src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2523f5f7ff%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%229%22%2F%3E%3Cpath%20d%3D%22M3%2012h18M12%203v18%22%2F%3E%3Cpath%20d%3D%22M5%208c3%202%2011%202%2014%200M5%2016c3-2%2011-2%2014%200%22%2F%3E%3C%2Fsvg%3E"></div><div style="flex: 1 1 0%;"><div class="app-title" title="Atlas · Cartesius">Atlas ·…</div><div class="mut">Planejador estratégico com cronogramas e checklists.</div><button class="btn fx-trans fx-press ring">Abrir<span class="ripple"></span></button></div></div></div></div><div class="apps-group"><h3 style="margin: 16px 4px 8px; font-size: 15px; font-weight: 800; color: var(--mut);">Disruptor</h3><div class="grid"><div class="app-card fx-trans fx-lift"><button class="fav-btn"><svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+
+  <defs>
+    <linearGradient id="g20" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00FFFF"/>
+      <stop offset="1" stop-color="#FF00FF"/>
+    </linearGradient>
+  </defs>
+  <circle cx="12" cy="12" r="9" stroke="url(#g20)" stroke-width="2"/>
+  <path d="M12 7v5l4 2" stroke="url(#g20)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg><span class="ripple"></span></button><div class="app-icon"><img alt="" width="24" height="24" src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2523f5f7ff%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M4%204l7%207-7%207%22%2F%3E%3Cpath%20d%3D%22M20%204l-7%207%207%207%22%2F%3E%3C%2Fsvg%3E"></div><div style="flex: 1 1 0%;"><div class="app-title" title="Kaos · Disruptor">Kaos ·…</div><div class="mut">Questiona padrões e propõe soluções ousadas.</div><button class="btn fx-trans fx-press ring">Abrir<span class="ripple"></span></button></div></div></div></div><div class="apps-group"><h3 style="margin: 16px 4px 8px; font-size: 15px; font-weight: 800; color: var(--mut);">Evolutia</h3><div class="grid"><div class="app-card fx-trans fx-lift"><button class="fav-btn"><svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+
+  <defs>
+    <linearGradient id="g21" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00FFFF"/>
+      <stop offset="1" stop-color="#FF00FF"/>
+    </linearGradient>
+  </defs>
+  <circle cx="12" cy="12" r="9" stroke="url(#g21)" stroke-width="2"/>
+  <path d="M12 7v5l4 2" stroke="url(#g21)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg><span class="ripple"></span></button><div class="app-icon"><img alt="" width="24" height="24" src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2523f5f7ff%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M7%2012c0-2.2%201.8-4%204-4%201.2%200%202.3.5%203%201.3M17%2012c0%202.2-1.8%204-4%204-1.2%200-2.3-.5-3-1.3%22%2F%3E%3Cpath%20d%3D%22M3%2012h4M17%2012h4%22%2F%3E%3C%2Fsvg%3E"></div><div style="flex: 1 1 0%;"><div class="app-title" title="Aion · Evolutia">Aion ·…</div><div class="mut">Microações estratégicas e evolução.</div><button class="btn fx-trans fx-press ring">Abrir<span class="ripple"></span></button></div></div></div></div><div class="apps-group"><h3 style="margin: 16px 4px 8px; font-size: 15px; font-weight: 800; color: var(--mut);">Fabricus</h3><div class="grid"><div class="app-card fx-trans fx-lift"><button class="fav-btn"><svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+
+  <defs>
+    <linearGradient id="g22" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00FFFF"/>
+      <stop offset="1" stop-color="#FF00FF"/>
+    </linearGradient>
+  </defs>
+  <circle cx="12" cy="12" r="9" stroke="url(#g22)" stroke-width="2"/>
+  <path d="M12 7v5l4 2" stroke="url(#g22)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg><span class="ripple"></span></button><div class="app-icon"><img alt="" width="24" height="24" src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2523f5f7ff%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Crect%20x%3D%227%22%20y%3D%227%22%20width%3D%2210%22%20height%3D%2210%22%20rx%3D%222%22%2F%3E%3Cpath%20d%3D%22M7%207l5-3%205%203M17%2017l-5%203-5-3%22%2F%3E%3C%2Fsvg%3E"></div><div style="flex: 1 1 0%;"><div class="app-title" title="Genus · Fabricus">Genus ·…</div><div class="mut">Protótipos e materialização de ideias.</div><button class="btn fx-trans fx-press ring">Abrir<span class="ripple"></span></button></div></div></div></div><div class="apps-group"><h3 style="margin: 16px 4px 8px; font-size: 15px; font-weight: 800; color: var(--mut);">Inspira</h3><div class="grid"><div class="app-card fx-trans fx-lift"><button class="fav-btn"><svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+
+  <defs>
+    <linearGradient id="g23" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00FFFF"/>
+      <stop offset="1" stop-color="#FF00FF"/>
+    </linearGradient>
+  </defs>
+  <circle cx="12" cy="12" r="9" stroke="url(#g23)" stroke-width="2"/>
+  <path d="M12 7v5l4 2" stroke="url(#g23)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg><span class="ripple"></span></button><div class="app-icon"><img alt="" width="24" height="24" src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2523f5f7ff%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%202v4M12%2018v4M2%2012h4M18%2012h4%22%2F%3E%3Cpath%20d%3D%22M5.6%205.6l2.8%202.8M15.6%2015.6l2.8%202.8M18.4%205.6l-2.8%202.8M8.4%2015.6l-2.8%202.8%22%2F%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%223%22%2F%3E%3C%2Fsvg%3E"></div><div style="flex: 1 1 0%;"><div class="app-title" title="Nova · Inspira">Nova ·…</div><div class="mut">Criativa que desbloqueia ideias com mapas mentais e exercícios.</div><button class="btn fx-trans fx-press ring">Abrir<span class="ripple"></span></button></div></div></div></div><div class="apps-group"><h3 style="margin: 16px 4px 8px; font-size: 15px; font-weight: 800; color: var(--mut);">Momentum</h3><div class="grid"><div class="app-card fx-trans fx-lift"><button class="fav-btn"><svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+
+  <defs>
+    <linearGradient id="g24" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00FFFF"/>
+      <stop offset="1" stop-color="#FF00FF"/>
+    </linearGradient>
+  </defs>
+  <circle cx="12" cy="12" r="9" stroke="url(#g24)" stroke-width="2"/>
+  <path d="M12 7v5l4 2" stroke="url(#g24)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg><span class="ripple"></span></button><div class="app-icon"><img alt="" width="24" height="24" src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2523f5f7ff%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M3%2012h4l2-5%204%2010%202-5h6%22%2F%3E%3Cpath%20d%3D%22M13%203l-2%204%203%201-2%204%22%2F%3E%3C%2Fsvg%3E"></div><div style="flex: 1 1 0%;"><div class="app-title" title="Vitalis · Momentum">Vitalis ·…</div><div class="mut">Rotinas físicas, hacks biológicos e motivação.</div><button class="btn fx-trans fx-press ring">Abrir<span class="ripple"></span></button></div></div></div></div><div class="apps-group"><h3 style="margin: 16px 4px 8px; font-size: 15px; font-weight: 800; color: var(--mut);">Naviga</h3><div class="grid"><div class="app-card fx-trans fx-lift"><button class="fav-btn"><svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+
+  <defs>
+    <linearGradient id="g25" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00FFFF"/>
+      <stop offset="1" stop-color="#FF00FF"/>
+    </linearGradient>
+  </defs>
+  <circle cx="12" cy="12" r="9" stroke="url(#g25)" stroke-width="2"/>
+  <path d="M12 7v5l4 2" stroke="url(#g25)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg><span class="ripple"></span></button><div class="app-icon"><img alt="" width="24" height="24" src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2523f5f7ff%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M3%2012h12%22%2F%3E%3Cpath%20d%3D%22M13%206l6%206-6%206%22%2F%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%229%22%2F%3E%3C%2Fsvg%3E"></div><div style="flex: 1 1 0%;"><div class="app-title" title="Artemis · Naviga">Artemis ·…</div><div class="mut">Explora conhecimentos e rotas de aprendizado.</div><button class="btn fx-trans fx-press ring">Abrir<span class="ripple"></span></button></div></div></div></div><div class="apps-group"><h3 style="margin: 16px 4px 8px; font-size: 15px; font-weight: 800; color: var(--mut);">Outros</h3><div class="grid"><div class="app-card fx-trans fx-lift"><button class="fav-btn"><svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+
+  <defs>
+    <linearGradient id="g26" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00FFFF"/>
+      <stop offset="1" stop-color="#FF00FF"/>
+    </linearGradient>
+  </defs>
+  <circle cx="12" cy="12" r="9" stroke="url(#g26)" stroke-width="2"/>
+  <path d="M12 7v5l4 2" stroke="url(#g26)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg><span class="ripple"></span></button><div class="app-icon"><img alt="" width="24" height="24" src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2523f5f7ff%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%229%22%2F%3E%3Cpath%20d%3D%22M3%2012h18M12%203v18%22%2F%3E%3Cpath%20d%3D%22M5%208c3%202%2011%202%2014%200M5%2016c3-2%2011-2%2014%200%22%2F%3E%3C%2Fsvg%3E"></div><div style="flex: 1 1 0%;"><div class="app-title" title="Dual_esqueci">Dual_esqueci</div><div class="mut">HTML local</div><button class="btn fx-trans fx-press ring">Abrir<span class="ripple"></span></button></div></div><div class="app-card fx-trans fx-lift"><button class="fav-btn"><svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+
+  <defs>
+    <linearGradient id="g27" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00FFFF"/>
+      <stop offset="1" stop-color="#FF00FF"/>
+    </linearGradient>
+  </defs>
+  <circle cx="12" cy="12" r="9" stroke="url(#g27)" stroke-width="2"/>
+  <path d="M12 7v5l4 2" stroke="url(#g27)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg><span class="ripple"></span></button><div class="app-icon"><img alt="" width="24" height="24" src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2523f5f7ff%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%229%22%2F%3E%3Cpath%20d%3D%22M3%2012h18M12%203v18%22%2F%3E%3Cpath%20d%3D%22M5%208c3%202%2011%202%2014%200M5%2016c3-2%2011-2%2014%200%22%2F%3E%3C%2Fsvg%3E"></div><div style="flex: 1 1 0%;"><div class="app-title" title="index_kobllux_voicefix">index_kobllux_voicefix</div><div class="mut">HTML local</div><button class="btn fx-trans fx-press ring">Abrir<span class="ripple"></span></button></div></div><div class="app-card fx-trans fx-lift"><button class="fav-btn"><svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+
+  <defs>
+    <linearGradient id="g28" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00FFFF"/>
+      <stop offset="1" stop-color="#FF00FF"/>
+    </linearGradient>
+  </defs>
+  <circle cx="12" cy="12" r="9" stroke="url(#g28)" stroke-width="2"/>
+  <path d="M12 7v5l4 2" stroke="url(#g28)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg><span class="ripple"></span></button><div class="app-icon"><img alt="" width="24" height="24" src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2523f5f7ff%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%229%22%2F%3E%3Cpath%20d%3D%22M3%2012h18M12%203v18%22%2F%3E%3Cpath%20d%3D%22M5%208c3%202%2011%202%2014%200M5%2016c3-2%2011-2%2014%200%22%2F%3E%3C%2Fsvg%3E"></div><div style="flex: 1 1 0%;"><div class="app-title" title="index-100">index-100</div><div class="mut">HTML local</div><button class="btn fx-trans fx-press ring">Abrir<span class="ripple"></span></button></div></div></div></div><div class="apps-group"><h3 style="margin: 16px 4px 8px; font-size: 15px; font-weight: 800; color: var(--mut);">Raízes</h3><div class="grid"><div class="app-card fx-trans fx-lift"><button class="fav-btn"><svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+
+  <defs>
+    <linearGradient id="g29" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00FFFF"/>
+      <stop offset="1" stop-color="#FF00FF"/>
+    </linearGradient>
+  </defs>
+  <circle cx="12" cy="12" r="9" stroke="url(#g29)" stroke-width="2"/>
+  <path d="M12 7v5l4 2" stroke="url(#g29)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg><span class="ripple"></span></button><div class="app-icon"><img alt="" width="24" height="24" src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2523f5f7ff%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%203v6%22%2F%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%229%22%20r%3D%224%22%2F%3E%3Cpath%20d%3D%22M12%2013v2l-2%202M12%2015l2%202M12%2017v3%22%2F%3E%3C%2Fsvg%3E"></div><div style="flex: 1 1 0%;"><div class="app-title" title="Rhea · Raízes">Rhea ·…</div><div class="mut">Vínculos e memórias emocionais.</div><button class="btn fx-trans fx-press ring">Abrir<span class="ripple"></span></button></div></div></div></div><div class="apps-group"><h3 style="margin: 16px 4px 8px; font-size: 15px; font-weight: 800; color: var(--mut);">Resona</h3><div class="grid"><div class="app-card fx-trans fx-lift"><button class="fav-btn"><svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+
+  <defs>
+    <linearGradient id="g30" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00FFFF"/>
+      <stop offset="1" stop-color="#FF00FF"/>
+    </linearGradient>
+  </defs>
+  <circle cx="12" cy="12" r="9" stroke="url(#g30)" stroke-width="2"/>
+  <path d="M12 7v5l4 2" stroke="url(#g30)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg><span class="ripple"></span></button><div class="app-icon"><img alt="" width="24" height="24" src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2523f5f7ff%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M2%2012h3l2-4%203%208%202-4h8%22%2F%3E%3Cpath%20d%3D%22M20%208v-3M20%2019v-3%22%2F%3E%3C%2Fsvg%3E"></div><div style="flex: 1 1 0%;"><div class="app-title" title="Pulse · Resona">Pulse ·…</div><div class="mut">Trilhas sonoras e ajuste de som emocional.</div><button class="btn fx-trans fx-press ring">Abrir<span class="ripple"></span></button></div></div></div></div></div>
       </div>
     </section>
 
@@ -1569,17 +2126,47 @@ body.hide-header .container { padding-top: max(8px, env(safe-area-inset-top)); }
           <div style="font-weight:800; display:flex; align-items:center; gap:8px">
             Sessões
             <button id="btnCloseAll" class="btn fx-trans fx-press ring" title="Fechar todas">
-              <img src="icons/xmark.svg" alt="Fechar todas" width="16" height="16" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6/svgs/solid/xmark.svg'" style="margin-right:4px">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+
+  <defs>
+    <linearGradient id="g31" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00FFFF"/>
+      <stop offset="1" stop-color="#FF00FF"/>
+    </linearGradient>
+  </defs>
+  <circle cx="12" cy="12" r="9" stroke="url(#g31)" stroke-width="2"/>
+  <path d="M12 7v5l4 2" stroke="url(#g31)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
               Fechar todas<span class="ripple"></span>
             </button>
             <!-- Botão para criar grupos de sessões -->
             <button id="btnAddGroup" class="btn fx-trans fx-press ring" title="Novo grupo">
-              <img src="icons/folder-plus.svg" alt="Novo grupo" width="16" height="16" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6/svgs/solid/folder-plus.svg'" style="margin-right:4px">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+
+  <defs>
+    <linearGradient id="g32" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00FFFF"/>
+      <stop offset="1" stop-color="#FF00FF"/>
+    </linearGradient>
+  </defs>
+  <circle cx="12" cy="12" r="9" stroke="url(#g32)" stroke-width="2"/>
+  <path d="M12 7v5l4 2" stroke="url(#g32)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
               Novo grupo<span class="ripple"></span>
             </button>
             <!-- Botão para enviar um HTML local e abrir como sessão -->
             <button id="btnStackUpload" class="btn fx-trans fx-press ring" title="Upload HTML">
-              <img src="icons/file-upload.svg" alt="Upload HTML" width="16" height="16" onerror="this.onerror=null;this.src='icons/file-upload.svg'" style="margin-right:4px">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+
+  <defs>
+    <linearGradient id="g33" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00FFFF"/>
+      <stop offset="1" stop-color="#FF00FF"/>
+    </linearGradient>
+  </defs>
+  <circle cx="12" cy="12" r="9" stroke="url(#g33)" stroke-width="2"/>
+  <path d="M12 7v5l4 2" stroke="url(#g33)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
               Upload HTML<span class="ripple"></span>
             </button>
             <input id="stackUpload" type="file" accept=".html,text/html" style="display:none">
@@ -1716,9 +2303,25 @@ body.hide-header .container { padding-top: max(8px, env(safe-area-inset-top)); }
 
     <!-- CHAT (Dual • Chat) -->
     <section id="v-chat" class="view">
-      <!-- Feed de mensagens do chat -->
-      <div id="chatFeed"><div class="msg user">Você: Essa versão tá daora</div><div class="msg user">Você: Essa versão tá daora</div><div class="msg user">Você: Essa versão tá daora</div><div class="msg user">Você: Dual e aí beleza como está</div><div class="msg user">Você: Dual e aí beleza como está</div><div class="msg user">Você: Dual e aí beleza como está</div><div class="msg user">Você: E aí alô</div><div class="msg user">Você: E aí alô</div><div class="msg user">Você: E aí alô</div><div class="msg user">Você: E aí beleza</div><div class="msg user">Você: E aí beleza</div><div class="msg user">Você: E aí beleza</div><div class="msg user">Você: Essa versão tá daora</div><div class="msg user">Você: Essa versão tá daora</div><div class="msg user">Você: Essa versão tá daora</div><div class="msg user">Você: Dual e aí beleza como está</div><div class="msg user">Você: Dual e aí beleza como está</div><div class="msg user">Você: Dual e aí beleza como está</div><div class="msg user">Você: E aí alô</div><div class="msg user">Você: E aí alô</div><div class="msg user">Você: E aí alô</div><div class="msg user">Você: E aí beleza</div><div class="msg user">Você: E aí beleza</div><div class="msg user">Você: E aí beleza</div></div>
-    </section>
+  <div class="grid">
+    <div class="card">
+      <div style="font-weight:800;margin-bottom:6px">Pulso em Expansão</div>
+      <div class="chat-pulse" id="chatPulse"></div>
+    </div>
+
+    <div class="card">
+      <div class="chat-wrap">
+        <div id="chatFeed" class="chat-feed" aria-live="polite"></div>
+
+        <div class="chat-composer">
+          <textarea id="chatInput" placeholder="Escreva sua intenção... (Shift+Enter quebra linha)"></textarea>
+          <button id="chatSend" class="btn prime">Enviar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
   </main>
 
   <!-- DOCK & TABS -->
@@ -1726,25 +2329,73 @@ body.hide-header .container { padding-top: max(8px, env(safe-area-inset-top)); }
   <nav class="tabbar">
     <div class="inner">
       <button class="tab fx-trans fx-press ring" data-nav="home">
-<img src="icons/house.svg" alt="Home" width="18" height="18" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6/svgs/solid/house.svg'">
-        <span style="display:none">Home</span><span class="ripple"></span>
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+
+  <defs>
+    <linearGradient id="gradNebulaTab" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00FFFF"/>
+      <stop offset="1" stop-color="#FF00FF"/>
+    </linearGradient>
+  </defs>
+  <path d="M3 10.5L12 3l9 7.5" stroke="url(#gradNebulaTab)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M5 10v10h14V10" stroke="url(#gradNebulaTab)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg><span style="display:none">Home</span><span class="ripple"></span>
       </button>
       <button class="tab fx-trans fx-press ring" data-nav="apps">
-<img src="icons/folder-open.svg" alt="Apps" width="18" height="18" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6/svgs/solid/folder-open.svg'">
-        <span style="display:none">Apps</span><span class="ripple"></span>
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+
+  <defs>
+    <linearGradient id="gradNebulaTab" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00FFFF"/>
+      <stop offset="1" stop-color="#FF00FF"/>
+    </linearGradient>
+  </defs>
+  <rect x="3" y="3" width="7" height="7" rx="2" stroke="url(#gradNebulaTab)" stroke-width="2"/>
+  <rect x="14" y="3" width="7" height="7" rx="2" stroke="url(#gradNebulaTab)" stroke-width="2"/>
+  <rect x="3" y="14" width="7" height="7" rx="2" stroke="url(#gradNebulaTab)" stroke-width="2"/>
+  <rect x="14" y="14" width="7" height="7" rx="2" stroke="url(#gradNebulaTab)" stroke-width="2"/>
+</svg><span style="display:none">Apps</span><span class="ripple"></span>
       </button>
       <button class="tab fx-trans fx-press ring" data-nav="stack">
-<img src="icons/layer-group.svg" alt="Stack" width="18" height="18" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6/svgs/solid/layer-group.svg'">
-        <span style="display:none">Stack</span><span class="ripple"></span>
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+
+  <defs>
+    <linearGradient id="gradNebulaTab" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00FFFF"/>
+      <stop offset="1" stop-color="#FF00FF"/>
+    </linearGradient>
+  </defs>
+  <polygon points="12 2 2 7 12 12 22 7 12 2" stroke="url(#gradNebulaTab)" stroke-width="2" fill="none"/>
+  <polyline points="2 12 12 17 22 12" stroke="url(#gradNebulaTab)" stroke-width="2" fill="none"/>
+  <polyline points="2 17 12 22 22 17" stroke="url(#gradNebulaTab)" stroke-width="2" fill="none"/>
+</svg><span style="display:none">Stack</span><span class="ripple"></span>
       </button>
       <button class="tab fx-trans fx-press ring active" data-nav="brain">
-<img src="icons/brain.svg" alt="Brain" width="18" height="18" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6/svgs/solid/brain.svg'">
-        <span style="display:none">Brain</span><span class="ripple"></span>
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+
+  <defs>
+    <linearGradient id="gradNebulaTab" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00FFFF"/>
+      <stop offset="1" stop-color="#FF00FF"/>
+    </linearGradient>
+  </defs>
+  <path d="M8 6a3 3 0 0 1 6 0 3 3 0 0 1 3 3 3 3 0 0 1 3 3 4 4 0 0 1-4 4H8a4 4 0 0 1-4-4 3 3 0 0 1 3-3 3 3 0 0 1 1-3z"
+    stroke="url(#gradNebulaTab)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg><span style="display:none">Brain</span><span class="ripple"></span>
       </button>
       <!-- Botão da nova aba Chat -->
       <button class="tab fx-trans fx-press ring" data-nav="chat">
-<img src="icons/comments.svg" alt="Chat" width="18" height="18" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6/svgs/solid/comments.svg'">
-        <span style="display:none">Chat</span><span class="ripple"></span>
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+
+  <defs>
+    <linearGradient id="gradNebulaTab" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00FFFF"/>
+      <stop offset="1" stop-color="#FF00FF"/>
+    </linearGradient>
+  </defs>
+  <path d="M21 15a4 4 0 0 1-4 4H7l-4 4V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v8z"
+    stroke="url(#gradNebulaTab)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg><span style="display:none">Chat</span><span class="ripple"></span>
       </button>
     </div>
   </nav>
@@ -1753,20 +2404,42 @@ body.hide-header .container { padding-top: max(8px, env(safe-area-inset-top)); }
 
   <!-- Controles de texto e voz empilhados acima da barra de navegação -->
   <div id="homeButtons" class="home-btns">
-    <button id="homeTextBtn" class="home-btn">
-      <img src="icons/pen-to-square.svg" alt="Texto" width="20" height="20" onerror="this.onerror=null;this.src='icons/pen-to-square.svg'">
-    <span class="ripple"></span></button>
-    <button id="homeVoiceBtn" class="home-btn">
-      <img src="icons/microphone.svg" alt="Voz" width="20" height="20" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6/svgs/solid/microphone.svg'">
-    <span class="ripple"></span></button>
+    <button id="homeTextBtn" class="home-btn"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+  <defs>
+    <linearGradient id="gradNebulaPen" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00FFFF"/>
+      <stop offset="1" stop-color="#FF00FF"/>
+    </linearGradient>
+  </defs>
+  <path d="M3 21l3.9-1 11.7-11.7a2.5 2.5 0 0 0-3.5-3.5L3.9 16.5 3 21z" fill="url(#gradNebulaPen)" />
+  <path d="M14 6l4 4" stroke="url(#gradNebulaPen)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg><span class="ripple"></span></button>
+    <button id="homeVoiceBtn" class="home-btn"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="url(#gradNebula)" stroke-width="2"
+  stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+  <defs>
+    <linearGradient id="gradNebula" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00FFFF"/>
+      <stop offset="1" stop-color="#FF00FF"/>
+    </linearGradient>
+  </defs>
+  <path d="M12 1a4 4 0 0 1 4 4v6a4 4 0 0 1-8 0V5a4 4 0 0 1 4-4z"/>
+  <path d="M19 11a7 7 0 0 1-14 0"/>
+  <path d="M12 19v4"/>
+</svg><span class="ripple"></span></button>
   </div>
   <!-- Overlay de input para envio rápido de mensagens na Home -->
   <div id="homeInputOverlay">
     <form id="homeInputForm" autocomplete="off">
       <input id="homeInput" type="text" placeholder="Escreva aqui…" autocomplete="off">
-      <button type="submit">
-        <img src="icons/paper-plane.svg" alt="Enviar" width="18" height="18" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6/svgs/solid/paper-plane.svg'">
-      <span class="ripple"></span></button>
+      <button type="submit"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+  <defs>
+    <linearGradient id="gradNebula" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00FFFF"/>
+      <stop offset="1" stop-color="#FF00FF"/>
+    </linearGradient>
+  </defs>
+  <path d="M4 12L20 4L13 20L11 13L4 12Z" fill="url(#gradNebula)" opacity="0.95"/>
+</svg><span class="ripple"></span></button>
     </form>
   </div>
 
@@ -2210,7 +2883,8 @@ body.hide-header .container { padding-top: max(8px, env(safe-area-inset-top)); }
 
     /* ===================== Navegação + Estado ===================== */
     function nav(key) {
-      // Remapeia a antiga aba 'revo' para 'chat'
+      const __ov = document.getElementById('homeInputOverlay'); const __tb = document.getElementById('homeTextBtn'); if(__ov){ __ov.style.display='none'; } if(__tb){ __tb.classList.remove('active'); }
+// Remapeia a antiga aba 'revo' para 'chat'
       if (key === 'revo') key = 'chat';
       // Adicionamos 'chat' à lista de abas para suportar a nova seção
       const tabs = ['home', 'apps', 'stack', 'brain', 'chat'];
@@ -5228,677 +5902,801 @@ document.getElementById('orbWrap')?.addEventListener('click', function(){ try{ w
 </script>
 
 
-<script>
-/* ================================================================
-   Dual · Particles "Cell" Renderer with Archetype Colors (Blue-1 safe)
-   - Replaces the existing #particles canvas with a new instance.
-   - Colors follow the current archetype (persisted in localStorage).
-   - Public API: window.setArchetype(name)
-   ================================================================ */
+<script id="orb-slot-and-archpersist-patch">
 (function(){
-  const ARCH_KEY = 'dual.archetype';           // localStorage key
-  const DEFAULT_ARCH = 'Nova';                 // default if none stored
-  // Hue palettes (center hue and spread) — tweak to your taste
-  const ARCH_PALETTES = {
-    'Nova':   { hue: 200, spread: 24 }, // ciano celeste
-    'Elysha': { hue: 280, spread: 26 }, // violeta-nebula
-    'Kaion':  { hue: 160, spread: 20 }, // verde-tec
-    'Atlas':  { hue: 30,  spread: 16 }, // âmbar/solar
-    'Serena': { hue: 320, spread: 22 }, // magenta quente
-    'Artemis':{ hue: 210, spread: 18 }, // azul profundo
-    'Pulse':  { hue: 195, spread: 30 }, // aqua vivo
-    'Rhea':   { hue: 45,  spread: 18 }, // ouro suave
-    'Solus':  { hue: 12,  spread: 18 }, // coral
-    'Aion':   { hue: 260, spread: 20 }, // roxo frio
-    'Genus':  { hue: 140, spread: 18 }, // verde bio
-    'Lumine': { hue: 220, spread: 20 }  // azul-luz
-  };
+  // ---- Helpers ----
+  function $(q, r=document){ return r.querySelector(q); }
+  function baseName(file){ return String(file||'').replace(/\.html$/i,'').toLowerCase(); }
 
-  // Read current archetype from localStorage
-  function getArch(){
-    try { return localStorage.getItem(ARCH_KEY) || DEFAULT_ARCH; }
-    catch(_) { return DEFAULT_ARCH; }
+  // ---- Create orb-slot and move the iframe inside the orb ----
+  function fuseIframeIntoOrb(){
+    var wrap = $('#orbWrap');
+    var frame = $('#arch-frame');
+    if(!wrap || !frame) return;
+    // If already fused, skip
+    if (frame.parentElement && frame.parentElement.classList && frame.parentElement.classList.contains('orb-slot')) return;
+    var slot = document.createElement('div');
+    slot.className = 'orb-slot';
+    // Insert slot above particles but below ring (order controlled by CSS z-index)
+    wrap.appendChild(slot);
+    // Move iframe inside slot
+    slot.appendChild(frame);
   }
-  function setArch(name){
-    const key = (name||'').trim();
-    if (!ARCH_PALETTES[key]) return;
-    try { localStorage.setItem(ARCH_KEY, key); } catch(_){}
-    // recolor immediately
-    CURRENT.arch = key;
-    recolor();
+
+  // ---- Archetype persistence (uno:arch) + overlay/apply + Firestore sync ----
+  function currentSelectBase(){
+    var sel = $('#arch-select'); if(!sel) return '';
+    var opt = sel.options[sel.selectedIndex];
+    return baseName(opt && opt.value);
   }
-  window.setArchetype = setArch;
-  window.getArchetype = getArch;
-
-  // Obtain / replace particles canvas safely
-  const oldCanvas = document.getElementById('particles');
-  if (!oldCanvas) return;
-  const parent = oldCanvas.parentNode;
-  const clone = oldCanvas.cloneNode(true);
-  oldCanvas.replaceWith(clone);
-
-  const c = clone;
-  const ctx = c.getContext('2d', { alpha:true });
-  const dpr = Math.min(2, (window.devicePixelRatio||1));
-  let RAF = 0;
-
-  function resize(){
-    const r = c.getBoundingClientRect();
-    c.width  = Math.floor(r.width * dpr);
-    c.height = Math.floor(r.height * dpr);
+  function applyArch(base){
+    var sel = $('#arch-select'), frame = $('#arch-frame'), fade = $('#arch-fadeCover');
+    if(!sel || !frame) return;
+    var idx = -1;
+    for (var i=0;i<sel.options.length;i++){
+      if (baseName(sel.options[i].value) === base){ idx = i; break; }
+    }
+    if (idx >= 0){
+      sel.selectedIndex = idx;
+      if (fade) fade.classList.add('show');
+      var file = sel.options[idx].value;
+      frame.src = './archetypes/' + file;
+      try { if (typeof window.applyArchOverlay === 'function') window.applyArchOverlay(base); } catch(_){}
+      try { if (typeof window.speakArchetype === 'function') window.speakArchetype(base); } catch(_){}
+      try { if (typeof window.updateHomeStatus === 'function') window.updateHomeStatus(); } catch(_){}
+      setTimeout(function(){ if (fade) fade.classList.remove('show'); }, 240);
+    }
   }
-  new ResizeObserver(()=>{ resize(); }).observe(c); resize();
-
-  // "Cell": concentric membrane, cytoplasm glow, drifting organelles
-  const CURRENT = {
-    arch: getArch(),
-    t0: performance.now(),
-    nodes: [],
-    nucleus: { wobbleA: Math.random()*6.28, wobbleB: Math.random()*6.28 }
-  };
-
-  const N = 96; // particles (organelles)
-  function palette(){
-    const p = ARCH_PALETTES[CURRENT.arch] || ARCH_PALETTES[DEFAULT_ARCH];
-    return p;
+  function saveArch(base){
+    if(!base) return;
+    try { localStorage.setItem('uno:arch', base); } catch(_){}
+    // If a shared app state exists, mirror and save remotely
+    try {
+      if (window.S && S.state){
+        S.state.archetype = base;
+        if (typeof window.saveState === 'function') saveState(S.state);
+      }
+    } catch(_){}
   }
-  function rand(min, max){ return min + Math.random()*(max-min); }
-
-  function seed(){
-    CURRENT.nodes = Array.from({length:N}, ()=>{
-      const a  = Math.random()*Math.PI*2;
-      const rr = 0.30 + Math.random()*0.58; // keep inner space for nucleus
-      const s  = (0.15 + Math.random()*0.65) * (Math.random()<0.5?-1:1);
-      const z  = 0.45 + Math.random()*0.55;
-      return { a, r: rr, s, z, hueOffset: rand(-1,1), drift: rand(0.8,1.6) };
+  function bindArchPersistence(){
+    var sel = $('#arch-select'), prev = $('#arch-prev'), next = $('#arch-next');
+    function persist(){ var b=currentSelectBase(); if(b){ saveArch(b);} }
+    if (sel) sel.addEventListener('change', persist, {passive:true});
+    if (prev) prev.addEventListener('click', function(){ setTimeout(persist, 0); }, {passive:true});
+    if (next) next.addEventListener('click', function(){ setTimeout(persist, 0); }, {passive:true});
+    // Accept remote notifications
+    window.addEventListener('message', function(ev){
+      var d = ev && ev.data || {};
+      if (d && d.type==='archReady' && d.name){
+        var b = baseName(d.name);
+        saveArch(b);
+      }
     });
   }
-  seed();
-
-  function recolor(){
-    // noop: colors are computed per-frame from CURRENT.arch
-  }
-
-  function draw(now){
-    const t = now || performance.now();
-    const dt = t - CURRENT.t0;
-
-    ctx.clearRect(0,0,c.width,c.height);
-    ctx.save();
-    ctx.translate(c.width/2, c.height/2);
-    ctx.globalCompositeOperation = 'lighter';
-
-    const scl = Math.min(c.width, c.height)/2;
-
-    // Cell membrane (rim)
-    (()=>{
-      const grd = ctx.createRadialGradient(0,0, scl*0.15, 0,0, scl*0.98);
-      const P = palette();
-      const h = P.hue;
-      grd.addColorStop(0.00, `hsla(${h}, 90%, 65%, .06)`);
-      grd.addColorStop(0.55, `hsla(${h}, 90%, 55%, .10)`);
-      grd.addColorStop(0.87, `hsla(${h}, 90%, 60%, .16)`);
-      grd.addColorStop(1.00, `hsla(${h}, 90%, 65%, 0)`);
-      ctx.fillStyle = grd;
-      ctx.beginPath(); ctx.arc(0,0, scl*0.98, 0, Math.PI*2); ctx.fill();
-    })();
-
-    // Cytoplasm faint noise swirl
-    (()=>{
-      const swirl = Math.sin(t*0.0013)*0.04;
-      ctx.rotate(swirl);
-      ctx.globalAlpha = 0.08;
-      const P = palette();
-      const h = P.hue + 12;
-      for (let i=0;i<6;i++){
-        const r = scl*(0.25 + i*0.12);
-        ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2);
-        ctx.strokeStyle = `hsla(${h},70%,60%,${0.08 - i*0.01})`;
-        ctx.lineWidth = 2 * (c.width/800);
-        ctx.stroke();
-      }
-      ctx.globalAlpha = 1;
-      ctx.rotate(-swirl);
-    })();
-
-    // Nucleus (soft pulsing)
-    (()=>{
-      const P = palette();
-      const h = P.hue - 10;
-      const wob = Math.sin(t*0.0016 + CURRENT.nucleus.wobbleA)*0.02 + Math.sin(t*0.0011 + CURRENT.nucleus.wobbleB)*0.015;
-      const r  = scl*(0.18 + wob);
-      const g  = ctx.createRadialGradient(0,0, 0, 0,0, r*1.55);
-      g.addColorStop(0.00, `hsla(${h}, 95%, 75%, .55)`);
-      g.addColorStop(0.45, `hsla(${h}, 90%, 60%, .18)`);
-      g.addColorStop(1.00, `hsla(${h}, 85%, 55%, 0)`);
-      ctx.fillStyle = g;
-      ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.fill();
-    })();
-
-    // Organelles (drifting particles)
-    const P = palette();
-    for(const n of CURRENT.nodes){
-      const ang = n.a + t*0.00025*n.s;
-      const rr  = n.r * (0.72 + 0.12*Math.sin(t*0.001 + n.a));
-      const x = Math.cos(ang)*rr*scl;
-      const y = Math.sin(ang)*rr*scl*0.98;
-      const rad = (1.0 + n.z*1.6) * (c.width/900);
-      const hue = P.hue + n.hueOffset * P.spread;
-
-      const g = ctx.createRadialGradient(x,y,0,x,y,rad*4.2);
-      g.addColorStop(0, `hsla(${hue}, 90%, 70%, .88)`);
-      g.addColorStop(1, `hsla(${hue}, 85%, 50%, 0)`);
-      ctx.fillStyle = g;
-      ctx.beginPath(); ctx.arc(x,y,rad,0,Math.PI*2); ctx.fill();
+  function bootWithSavedArch(){
+    var saved = (localStorage.getItem('uno:arch') || localStorage.getItem('infodose:arch') || '').replace(/\.html$/i,'');
+    saved = baseName(saved);
+    if(saved){
+      var cur = currentSelectBase();
+      if (cur !== saved) applyArch(saved);
+    } else {
+      // Initialize with current
+      saveArch(currentSelectBase());
     }
-
-    ctx.restore();
-    RAF = requestAnimationFrame(draw);
   }
 
-  function boot(){
-    cancelAnimationFrame(RAF);
-    RAF = requestAnimationFrame(draw);
+  function start(){
+    fuseIframeIntoOrb();
+    bindArchPersistence();
+    bootWithSavedArch();
   }
 
-  // If a global archetype selector exists elsewhere, hook it:
-  document.addEventListener('archetype:change', (ev)=>{
-    const name = ev && ev.detail && ev.detail.name;
-    if (name && ARCH_PALETTES[name]) setArch(name);
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+  else start();
+})();
+</script>
+
+
+<script id="arch-chips-3d-layers">
+// BLOOM TOGGLE: persist in localStorage('dual.ui.bloom'), add button above chips
+(function(){ 
+  const _bState = (localStorage.getItem('dual.ui.bloom') === '1');
+  function sendBloom(enabled){
+    try{
+      const fr = document.getElementById('arch-frame');
+      if(fr && fr.contentWindow) fr.contentWindow.postMessage({ type:'bloomToggle', enabled: !!enabled }, '*');
+      // Adjust overlay intensity when bloom enabled
+      document.documentElement.style.setProperty('--arch-overlay-intensity', enabled? '0.45' : '0.35');
+    }catch(e){}
+  }
+  // ensure we send initial state on boot after DOM ready
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', ()=> sendBloom(_bState) );
+  } else sendBloom(_bState);
+  // expose helper for the chip script to create the button
+  window._dual_bloom_state = _bState;
+  window._dual_bloom_send = sendBloom;
+})();
+(function(){
+  // Minimal palettes (sync with your overlay colors)
+  const COLORS = {
+    atlas:'#409EFF', nova:'#FF52B1', vitalis:'#34D399', pulse:'#00BFFF',
+    artemis:'#FFC300', serena:'#B684FF', kaos:'#FF4D6D', genus:'#22C55E',
+    lumine:'#FFD54F', rhea:'#00D1B2', solus:'#6495ED', aion:'#8B5CF6'
+  };
+  const PRESET = name => ({
+    name,
+    color: COLORS[name] || '#88a',
+    count: (name==='nova'||name==='pulse'||name==='lumine') ? 340 : 260,
+    orbitRadius: (name==='nova'||name==='serena'||name==='lumine') ? 0.76 : 0.68,
+    spin: (name==='nova'||name==='pulse') ? 0.7 : 0.56,
+    size: 0.010, // sphere size
+    glow: 0.42
   });
 
-  // expose lightweight API
-  window.DUAL_ARCH = {
-    set: setArch,
-    get: getArch,
-    palettes: ARCH_PALETTES
-  };
-
-  // Start with last used or default
-  recolor();
-  boot();
-})();
-</script>
-
-
-<!-- Edge toggles: navegação (nave) e header -->
-<button id="etNav"  class="edge-toggle" aria-label="Alternar navegação" title="Mostrar/ocultar navegação">
-  <i></i>
-</button>
-<button id="etHead" class="edge-toggle" aria-label="Alternar header" title="Mostrar/ocultar header">
-  <i></i>
-</button>
-
-
-<script>
-(function(){
-  const KEY_NAV  = 'dual.ui.hideNav';
-  const KEY_HEAD = 'dual.ui.hideHeader';
-
-  const $ = (s)=> document.querySelector(s);
-  let etNav, etHead;
-
-  function vibrate(ms=12){ try{ navigator.vibrate && navigator.vibrate(ms); }catch(_){} }
-
-  function applyPersisted(){
-    try{
-      const hideNav  = localStorage.getItem(KEY_NAV)  === '1';
-      const hideHead = localStorage.getItem(KEY_HEAD) === '1';
-      document.body.classList.toggle('hide-nav', hideNav);
-      document.body.classList.toggle('hide-header', hideHead);
-    }catch(_){}
+  const ACTIVE = new Set();
+  function sendLayers(){
+    const fr = document.getElementById('arch-frame');
+    if (!fr || !fr.contentWindow) return;
+    const arr = Array.from(ACTIVE).map(n => PRESET(n));
+    fr.contentWindow.postMessage({ type:'atomConfigLayers', layers: arr }, '*');
   }
 
-  function toggleNav(){
-    document.body.classList.toggle('hide-nav');
-    const on = document.body.classList.contains('hide-nav');
-    try{ localStorage.setItem(KEY_NAV, on?'1':'0'); }catch(_){}
-    vibrate(8);
-  }
-
-  function toggleHeader(){
-    document.body.classList.toggle('hide-header');
-    const on = document.body.classList.contains('hide-header');
-    try{ localStorage.setItem(KEY_HEAD, on?'1':'0'); }catch(_){}
-    vibrate(8);
-  }
-
-  function boot(){
-    etNav  = $('#etNav');
-    etHead = $('#etHead');
-    if (etNav)  etNav.addEventListener('click', toggleNav,  {passive:true});
-    if (etHead) etHead.addEventListener('click', toggleHeader, {passive:true});
-    applyPersisted();
-    // atalhos desktop
-    document.addEventListener('keydown', (e)=>{
-      if (e.key === 'n' || e.key === 'N') toggleNav();
-      if (e.key === 'h' || e.key === 'H') toggleHeader();
-    });
-  }
-
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
-  else boot();
-})();
-</script>
-
-
-<script>
-/* =====================================================
-   Nexus Bind: UI flags ↔ S.state ↔ Firestore (persist)
-   - Adds S.state.ui.{hideNav, hideHeader}
-   - Mirrors to body classes
-   - Persists via saveState() when available
-   - Extends renderState + Manifesto
-   ===================================================== */
-(function(){
-  const KEY_NAV  = 'dual.ui.hideNav';
-  const KEY_HEAD = 'dual.ui.hideHeader';
-
-  // 1) Ensure S and ui bucket
-  window.S = window.S || { state:{}, config:{} };
-  const st = (S.state = S.state || {});
-  st.ui = st.ui || { hideNav:false, hideHeader:false };
-
-  // 2) Bootstrap from localStorage if not set
-  try {
-    if (localStorage.getItem(KEY_NAV)  !== null) st.ui.hideNav    = localStorage.getItem(KEY_NAV)  === '1';
-    if (localStorage.getItem(KEY_HEAD) !== null) st.ui.hideHeader = localStorage.getItem(KEY_HEAD) === '1';
-  } catch(_){}
-
-  // 3) Helpers
-  function applyBody(){
-    document.body.classList.toggle('hide-nav', !!S.state.ui.hideNav);
-    document.body.classList.toggle('hide-header', !!S.state.ui.hideHeader);
-  }
-  function persist(){
-    try {
-      localStorage.setItem(KEY_NAV,  S.state.ui.hideNav ? '1':'0');
-      localStorage.setItem(KEY_HEAD, S.state.ui.hideHeader ? '1':'0');
-    } catch(_){}
-    if (typeof window.saveState === 'function'){
-      try { saveState(S.state); } catch(_){}
-    }
-  }
-
-  // 4) Wire edge toggle buttons to S.state (overwrite handlers if exist)
-  function wireEdge(){
-    const etNav  = document.getElementById('etNav');
-    const etHead = document.getElementById('etHead');
-    if (etNav){
-      etNav.onclick = function(){
-        S.state.ui.hideNav = !S.state.ui.hideNav;
-        applyBody(); persist();
-        try{ navigator.vibrate && navigator.vibrate(8);}catch(_){}
-      };
-    }
-    if (etHead){
-      etHead.onclick = function(){
-        S.state.ui.hideHeader = !S.state.ui.hideHeader;
-        applyBody(); persist();
-        try{ navigator.vibrate && navigator.vibrate(8);}catch(_){}
-      };
-    }
-  }
-
-  // 5) Patch renderState to always apply UI flags
-  const prevRender = window.renderState;
-  window.renderState = function patchedRenderState(){
-    if (typeof prevRender === 'function') prevRender.apply(this, arguments);
-    // ensure UI classes
-    applyBody();
-    // also keep Manifesto fresh if open
-    if (S.state.manifestoOpen && typeof window.renderManifestoContent === 'function'){
-      try{ renderManifestoContent(); }catch(_){}
-    }
-  };
-  window.renderState.__uiBound = true;
-
-  // 6) Extend Manifesto content to show flags (wrap original)
-  const prevManifesto = window.renderManifestoContent;
-  window.renderManifestoContent = function patchedManifesto(){
-    if (typeof prevManifesto === 'function') prevManifesto.apply(this, arguments);
-    try{
-      const el = document.getElementById('manifestoStatus');
-      if (!el) return;
-      const uiInfo = document.createElement('div');
-      uiInfo.style.marginTop = '10px';
-      uiInfo.innerHTML = `
-        <h3 class="text-nebula-m" style="margin:.75rem 0 .35rem;font-weight:800">UI Flags</h3>
-        <ul class="text-sm" style="display:grid;gap:8px;list-style:none;padding:0;margin:0">
-          <li style="display:flex;justify-content:space-between;align-items:center;background:var(--glass);padding:10px;border:1px solid var(--ring);border-radius:12px">
-            <span>Ocultar Navegação</span><span style="color:${S.state.ui.hideNav?'var(--ok)':'var(--muted)'}">${S.state.ui.hideNav?'ATIVO':'INATIVO'}</span></li>
-          <li style="display:flex;justify-content:space-between;align-items:center;background:var(--glass);padding:10px;border:1px solid var(--ring);border-radius:12px">
-            <span>Ocultar Header</span><span style="color:${S.state.ui.hideHeader?'var(--ok)':'var(--muted)'}">${S.state.ui.hideHeader?'ATIVO':'INATIVO'}</span></li>
-        </ul>`;
-      el.appendChild(uiInfo);
-    }catch(_){}
-  };
-
-  // 7) Initial apply
-  applyBody();
-  // Try wire after DOM ready
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wireEdge);
-  else wireEdge();
-})();
-</script>
-
-
-<script>
-/* =====================================================
-   Archetype Sync ↔ S.state ↔ localStorage ↔ Firestore
-   - Ensures S.state.archetype exists
-   - Wraps DUAL_ARCH.set to persist + saveState()
-   - Reconciles on boot and when remote state changes
-   - Shows in Manifesto
-   ===================================================== */
-(function(){
-  const ARCH_KEY = 'dual.archetype';
-  const DEFAULT  = 'Nova';
-
-  // 1) Ensure S and archetype field
-  window.S = window.S || { state:{}, config:{} };
-  const st = (S.state = S.state || {});
-  if (typeof st.archetype === 'undefined'){
-    // bootstrap from localStorage or renderer (DUAL_ARCH) or default
-    let bootArch = DEFAULT;
-    try{
-      const ls = localStorage.getItem(ARCH_KEY);
-      if (ls) bootArch = ls;
-    }catch(_){}
-    if (window.DUAL_ARCH && typeof DUAL_ARCH.get === 'function'){
-      try { bootArch = DUAL_ARCH.get() || bootArch; } catch(_){}
-    }
-    st.archetype = bootArch;
-  }
-
-  // 2) Helper: persist to LS + Firestore
-  function persistArch(name){
-    // localStorage
-    try{ localStorage.setItem(ARCH_KEY, name); }catch(_){}
-    // Firestore (if available)
-    if (typeof window.saveState === 'function'){
-      try{ saveState(S.state); }catch(_){}
-    }
-  }
-
-  // 3) Wrap DUAL_ARCH.set to also update S.state
-  if (window.DUAL_ARCH && typeof DUAL_ARCH.set === 'function'){
-    const prevSet = DUAL_ARCH.set;
-    DUAL_ARCH.set = function(name){
-      const res = prevSet.apply(this, arguments);
-      if (name && typeof name === 'string'){
-        S.state.archetype = name;
-        persistArch(name);
-        // If you want Manifesto to refresh live:
-        if (S.state.manifestoOpen && typeof window.renderManifestoContent === 'function'){
-          try{ renderManifestoContent(); }catch(_){}
-        }
-      }
-      return res;
-    };
-  }
-
-  // 4) Also wrap window.setArchetype if present
-  if (typeof window.setArchetype === 'function'){
-    const prev = window.setArchetype;
-    window.setArchetype = function(name){
-      const res = prev.apply(this, arguments);
-      if (name && typeof name === 'string'){
-        S.state.archetype = name;
-        persistArch(name);
-        if (S.state.manifestoOpen && typeof window.renderManifestoContent === 'function'){
-          try{ renderManifestoContent(); }catch(_){}
-        }
-      }
-      return res;
-    };
-  }
-
-  // 5) Reconcile particles renderer with S.state on boot
-  function reconcile(){
-    const target = S.state.archetype || DEFAULT;
-    if (window.DUAL_ARCH && typeof DUAL_ARCH.get === 'function' && typeof DUAL_ARCH.set === 'function'){
-      try{
-        if (DUAL_ARCH.get() !== target){
-          DUAL_ARCH.set(target);
-        }
-      }catch(_){}
-    }
-  }
-
-  // 6) Patch renderState so archetype is always consistent after any remote merge
-  const prevRender = window.renderState;
-  window.renderState = function patchedRenderState(){
-    if (typeof prevRender === 'function') prevRender.apply(this, arguments);
-    reconcile();
-  };
-
-  // 7) Extend Manifesto output with Archetype line
-  const prevManifesto = window.renderManifestoContent;
-  window.renderManifestoContent = function patchedManifesto(){
-    if (typeof prevManifesto === 'function') prevManifesto.apply(this, arguments);
-    const el = document.getElementById('manifestoStatus');
-    if (!el) return;
-    const info = document.createElement('div');
-    info.style.marginTop = '10px';
-    info.innerHTML = `
-      <h3 class="text-nebula-m" style="margin:.75rem 0 .35rem;font-weight:800">Arquetipo Atual</h3>
-      <div class="text-sm" style="display:flex;justify-content:space-between;align-items:center;background:var(--glass);padding:10px;border:1px solid var(--ring);border-radius:12px">
-        <span>Nome</span><span style="color:var(--ok)">${(S.state.archetype||'Nova')}</span>
-      </div>`;
-    el.appendChild(info);
-  };
-
-  // 8) Initial reconcile
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', reconcile);
-  else reconcile();
-})();
-</script>
-
-
-<script>
-/* =====================================================
-   Archetype Chips + Theme + Logs (LS Panel + Nexus)
-   - Renders chips in LS Panel (top) and Manifesto
-   - Themes via :root --nebA/--nebB per archetype
-   - Logs changes to Firestore (if online)
-   ===================================================== */
-(function(){
-  const THEME = {
-    'Nova':   { nebA:'#7a3cff', nebB:'#00e5ff' },
-    'Elysha': { nebA:'#b05bff', nebB:'#7ad3ff' },
-    'Kaion':  { nebA:'#34d399', nebB:'#22d3ee' },
-    'Atlas':  { nebA:'#f59e0b', nebB:'#f97316' },
-    'Serena': { nebA:'#ff72c6', nebB:'#7aa2ff' },
-    'Artemis':{ nebA:'#0ea5e9', nebB:'#1d4ed8' },
-    'Pulse':  { nebA:'#06b6d4', nebB:'#22d3ee' },
-    'Rhea':   { nebA:'#facc15', nebB:'#f59e0b' },
-    'Solus':  { nebA:'#fb7185', nebB:'#f97316' },
-    'Aion':   { nebA:'#8b5cf6', nebB:'#60a5fa' },
-    'Genus':  { nebA:'#10b981', nebB:'#22c55e' },
-    'Lumine': { nebA:'#60a5fa', nebB:'#22d3ee' }
-  };
-
-  // 1) Theme apply
-  function applyThemeFor(name){
-  const t = THEME[name] || THEME['Nova'];
-  const root = document.documentElement;
-  root.style.setProperty('--nebA', t.nebA);
-  root.style.setProperty('--nebB', t.nebB);
-  // derive background trio from theme (cooler and darker mix)
-  function mix(a,b,p){ // a,b hex '#rrggbb' ; p 0..1 toward b
-    function hex2(c){c=c.replace('#','');return [parseInt(c.slice(0,2),16),parseInt(c.slice(2,4),16),parseInt(c.slice(4,6),16)];}
-    function hx(n){n=Math.max(0,Math.min(255,Math.round(n)));return n.toString(16).padStart(2,'0');}
-    const A=hex2(a), B=hex2(b);
-    const r=A[0]+(B[0]-A[0])*p, g=A[1]+(B[1]-A[1])*p, b2=A[2]+(B[2]-A[2])*p;
-    return '#'+hx(r)+hx(g)+hx(b2);
-  }
-  const baseDark = '#07080d';
-  const midDark  = '#0c0f22';
-  const topTint  = mix(t.nebA, t.nebB, 0.35);
-  const midTint  = mix(midDark, t.nebB, 0.18);
-  root.style.setProperty('--bgA', topTint);
-  root.style.setProperty('--bgB', midTint);
-  root.style.setProperty('--bgC', baseDark);
-}
-
-  // 2) Firestore log (if online)
-  async function logArchetypeChange(name, origin){
-    try{
-      if (!window.db || !window.userId || !window.appId) return;
-      // dynamic import of firestore helpers in a module-like way using global import()
-      // (works in modern browsers; fallback is to skip logging)
-      const { collection, addDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js');
-      const path = `/artifacts/${window.appId}/users/${window.userId}/events`;
-      const col = collection(window.db, path);
-      await addDoc(col, {
-        type: 'archetype.change',
-        name: name,
-        origin: origin || 'local',
-        at: serverTimestamp ? serverTimestamp() : (new Date()).toISOString()
-      });
-      console.log('[LOG] archetype change logged:', name, origin);
-    }catch(e){
-      console.warn('[LOG] archetype change skipped:', e);
-    }
-  }
-
-  // 3) Extend DUAL_ARCH wiring to theme + log
-  function wireSet(){
-    if (!(window.DUAL_ARCH && typeof DUAL_ARCH.set === 'function')) return;
-    const prev = DUAL_ARCH.set;
-    DUAL_ARCH.set = function(name, origin='local'){
-      const res = prev.apply(this, [name]);
-      try{
-        if (name){
-          applyThemeFor(name);
-          // mirror into S.state (if not already via previous patch)
-          window.S = window.S || { state:{}, config:{} };
-          S.state = S.state || {};
-          S.state.archetype = name;
-          // persist (previous patch already handles saveState/localStorage)
-          if (typeof window.saveState === 'function'){ try{ saveState(S.state); }catch(_){ } }
-          // log
-          logArchetypeChange(name, origin);
-          // refresh manifesto if open
-          if (S.state.manifestoOpen && typeof window.renderManifestoContent === 'function'){
-            try{ renderManifestoContent(); }catch(_){}
-          }
-        }
-      }catch(_){}
-      return res;
-    };
-  }
-  wireSet();
-
-  // 4) Re-apply theme on boot (current archetype)
-  function bootTheme(){
-    const name = (window.S && S.state && S.state.archetype) || (window.DUAL_ARCH && DUAL_ARCH.get && DUAL_ARCH.get()) || 'Nova';
-    applyThemeFor(name);
-  }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bootTheme);
-  else bootTheme();
-
-  // 5) Chips UI (LS Panel + Manifesto)
-  function archetypeNames(){
-    if (window.DUAL_ARCH && DUAL_ARCH.palettes) return Object.keys(DUAL_ARCH.palettes);
-    return Object.keys(THEME);
-  }
-
-  function chip(name){
+  function chipEl(name){
     const b = document.createElement('button');
     b.className = 'arch-chip';
-    b.textContent = name;
-    b.setAttribute('aria-label', 'Ativar arquétipo '+name);
-    b.onclick = ()=> { window.DUAL_ARCH && DUAL_ARCH.set(name, 'local'); };
+    b.textContent = name[0].toUpperCase()+name.slice(1);
+    b.style.borderColor = 'rgba(255,255,255,.18)';
+    b.style.background = 'rgba(255,255,255,.06)';
+    b.onclick = ()=>{
+      if (ACTIVE.has(name)) ACTIVE.delete(name); else ACTIVE.add(name);
+      b.classList.toggle('on', ACTIVE.has(name));
+      sendLayers();
+    };
     return b;
   }
 
-  function ensureChipStyles(){
-    if (document.getElementById('archChipStyles')) return;
-    const st = document.createElement('style');
-    st.id = 'archChipStyles';
+  function ensureStyles(){
+    if (document.getElementById('archChip3DStyles')) return;
+    const st = document.createElement('style'); st.id='archChip3DStyles';
     st.textContent = `
-      .arch-chip-wrap{ display:grid; grid-auto-flow: row; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap:8px; }
-      .arch-chip{ appearance:none; border:1px solid var(--ring); background: var(--glass); color: var(--txt);
+      .arch-chip-wrap{ display:grid; grid-template-columns: repeat(auto-fill,minmax(92px,1fr)); gap:8px; }
+      .arch-chip{ appearance:none; border:1px solid var(--ring, rgba(255,255,255,.18)); background: var(--glass, rgba(255,255,255,.06)); color: var(--txt, #eaf2ff);
         padding:8px 10px; border-radius:999px; font-size:12px; letter-spacing:.2px; cursor:pointer; }
-      .arch-chip:hover{ background: rgba(255,255,255,.10); }
-      .arch-chip-title{ font-size:12px; color: var(--muted); margin: 6px 0 6px; }
+      .arch-chip.on{ background: rgba(57,255,182,.18); border-color: rgba(57,255,182,.45); }
+      .arch-chip-title{ font-size:12px; color: var(--muted,#a6b0c0); margin: 6px 0 6px; font-weight:800; }
     `;
     document.head.appendChild(st);
   }
 
-  function injectChipsIntoLSPanel(){
-    ensureChipStyles();
-    const content = document.getElementById('panelContent');
-    if (!content) return;
-    // avoid duplicating
-    if (document.getElementById('archChipSection')) return;
+  function injectInLSPanel(){
+    ensureStyles();
+    const panel = document.getElementById('lsPanel') || document.querySelector('#lsModal .ls-panel');
+    if (!panel || document.getElementById('archChip3DSection')) return;
     const sec = document.createElement('div');
-    sec.id = 'archChipSection';
-    sec.className = 'mod-section';
-    const title = document.createElement('div');
-    title.className = 'arch-chip-title';
-    title.textContent = 'Arquétipos';
-    const wrap = document.createElement('div');
-    wrap.className = 'arch-chip-wrap';
-    (archetypeNames()).forEach(n=> wrap.appendChild(chip(n)));
-    sec.appendChild(title);
+    sec.id = 'archChip3DSection';
+    sec.className = 'preset';
+    sec.style.marginTop = '10px';
+    sec.innerHTML = `<div class="arch-chip-title">Arquétipos (camadas no ORB · 3D)</div>`;
+    const wrap = document.createElement('div'); wrap.className = 'arch-chip-wrap';
+    ['atlas','nova','vitalis','pulse','artemis','serena','kaos','genus','lumine','rhea','solus','aion'].forEach(n=> wrap.appendChild(chipEl(n)));
     sec.appendChild(wrap);
-    // prepend to LS Panel content
-    content.prepend(sec);
+    // === Bloom toggle (insert above chips) ===
+    const bloomWrap = document.createElement('div');
+    bloomWrap.style.display = 'flex'; bloomWrap.style.alignItems = 'center'; bloomWrap.style.justifyContent = 'space-between';
+    bloomWrap.style.marginBottom = '8px';
+    const lbl = document.createElement('div'); lbl.textContent = 'Bloom Nébula'; lbl.className='arch-chip-title'; lbl.style.margin='0'; lbl.style.fontSize='12px';
+    const toggle = document.createElement('button'); toggle.id='toggleBloomBtn'; toggle.className='arch-chip'; toggle.style.minWidth='92px';
+    const state = (localStorage.getItem('dual.ui.bloom') === '1') || !!window._dual_bloom_state;
+    if(state) toggle.classList.add('on');
+    toggle.textContent = state ? 'Bloom: ON' : 'Bloom: OFF';
+    toggle.onclick = function(){
+      const now = !toggle.classList.contains('on');
+      toggle.classList.toggle('on', now);
+      toggle.textContent = now ? 'Bloom: ON' : 'Bloom: OFF';
+      try{ localStorage.setItem('dual.ui.bloom', now? '1':'0'); }catch(_){}
+      if (window._dual_bloom_send) window._dual_bloom_send(now);
+      // send message to iframe as well for immediate toggle
+      try{ const f = document.getElementById('arch-frame'); if(f && f.contentWindow) f.contentWindow.postMessage({ type: 'bloomToggle', enabled: !!now }, '*'); }catch(_){}
+    };
+    sec.insertBefore(bloomWrap, sec.firstChild);
+    bloomWrap.appendChild(lbl);
+    bloomWrap.appendChild(toggle);
+    
+    // Coloca no topo do LS Panel
+    const hdr = panel.querySelector('.ls-hdr');
+    if (hdr && hdr.parentNode) hdr.parentNode.insertBefore(sec, hdr.nextSibling);
+    // Ativa por padrão a camada do arquétipo atual
+    try{
+      const sel = document.getElementById('arch-select');
+      const cur = (sel && sel.value || 'atlas.html').replace(/.*\//,'').replace(/\.html$/i,'');
+      const btn = wrap.querySelector('button.arch-chip:nth-child(' + (['atlas','nova','vitalis','pulse','artemis','serena','kaos','genus','lumine','rhea','solus','aion'].indexOf(cur)+1) + ')');
+      if (cur && btn){ ACTIVE.add(cur); btn.classList.add('on'); sendLayers(); }
+    }catch(_){}
   }
 
-  // Hook renderSecundaryPanel to inject chips whenever LS Panel renderiza
-  (function hookLS(){
-    const retry = ()=> setTimeout(hookLS, 160);
-    if (typeof window.renderSecundaryPanel !== 'function') return retry();
-    if (window.renderSecundaryPanel.__archChipHooked) return;
-    const orig = window.renderSecundaryPanel;
-    window.renderSecundaryPanel = function(){
-      const r = orig.apply(this, arguments);
-      try{ injectChipsIntoLSPanel(); }catch(_){}
-      return r;
-    };
-    window.renderSecundaryPanel.__archChipHooked = true;
-  })();
-
-  // Also add chips into Manifesto (small strip)
-  (function hookManifesto(){
-    const prev = window.renderManifestoContent;
-    window.renderManifestoContent = function(){
-      if (typeof prev === 'function') prev.apply(this, arguments);
-      try{
-        ensureChipStyles();
-        const el = document.getElementById('manifestoStatus');
-        if (!el || document.getElementById('archChipStrip')) return;
-        const box = document.createElement('div');
-        box.id = 'archChipStrip';
-        box.style.marginTop = '10px';
-        box.innerHTML = `<h3 class="text-nebula-m" style="margin:.75rem 0 .35rem;font-weight:800">Trocar Arquétipo</h3>`;
-        const wrap = document.createElement('div'); wrap.className = 'arch-chip-wrap';
-        (archetypeNames()).forEach(n=> wrap.appendChild(chip(n)));
-        box.appendChild(wrap);
-        el.appendChild(box);
-      }catch(_){}
-    };
-  })();
-
-  // 6) If remote state merges change S.state.archetype, theme + log it as 'remote'
-  document.addEventListener('archetype:remote-merge', (e)=>{
-    const name = e && e.detail && e.detail.name;
-    if (!name) return;
-    if (window.DUAL_ARCH && typeof DUAL_ARCH.set === 'function'){
-      DUAL_ARCH.set(name, 'remote');
+  function bindLSButton(){
+    const btn = document.getElementById('btnLS');
+    if (btn && !btn.dataset._chipsHook){
+      btn.dataset._chipsHook = '1';
+      btn.addEventListener('click', ()=> setTimeout(injectInLSPanel, 80), {passive:true});
     } else {
-      applyThemeFor(name);
-      logArchetypeChange(name, 'remote');
+      // if already open
+      setTimeout(injectInLSPanel, 120);
     }
-  });
+  }
 
-  // Optionally, if you detect remote merges elsewhere (onSnapshot), you can dispatch:
-  // document.dispatchEvent(new CustomEvent('archetype:remote-merge', { detail:{ name: S.state.archetype } }));
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bindLSButton);
+  else bindLSButton();
+
+  // Also re-inject if LS modal gets rebuilt
+  document.addEventListener('ls:disabled-changed', ()=> setTimeout(injectInLSPanel, 60));
 })();
 </script>
 
+
+<!-- LSPANEL MASTER FIX v3.7.1 — CSS -->
+<style id="lspanel-masterfix-css">
+:root{ --ls-fg:#eaf2ff; --ls-surface:rgba(15,17,32,.9); --ls-line:rgba(255,255,255,.14); --ls-gap:10px; --ls-h:40px; --ls-r:12px; }
+#lsModal .ls-panel{background:var(--ls-surface)!important;border:1px solid var(--ls-line)!important;border-radius:16px!important;padding:12px!important}
+#lsModal .ls-panel .section-title{font-weight:900;font-size:12px;color:var(--ls-fg);opacity:.95;margin:8px 0 6px}
+#lsModal .ls-panel .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:var(--ls-gap)}
+#lsModal .ls-panel .line{display:grid;grid-template-columns:1fr 1fr;gap:var(--ls-gap);align-items:center}
+#lsModal .ls-panel label{font-size:12px;opacity:.85}
+#lsModal .ls-panel .pill-btn, #lsModal .ls-panel button, #lsModal .ls-panel .arch-chip, #lsModal .ls-panel .btn{
+  min-height:var(--ls-h);border-radius:var(--ls-r);padding:8px 12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.18);color:var(--ls-fg);font-size:12px;letter-spacing:.2px
+}
+#lsModal .ls-panel .pill-btn.on, #lsModal .ls-panel .arch-chip.on{background:rgba(57,255,182,.18);border-color:rgba(57,255,182,.45)}
+#lsModal .ls-panel input[type="range"], #lsModal .ls-panel select{
+  min-height:var(--ls-h);border-radius:var(--ls-r);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.18);color:var(--ls-fg);padding:10px
+}
+#lsModal .ls-panel output{font-size:12px;opacity:.9}
+#perfHud{display:flex;gap:8px;align-items:center;justify-content:space-between;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.18);border-radius:12px;padding:8px 10px;margin:8px 0}
+#perfHud .stats{display:flex;gap:10px;align-items:center}
+#perfHud .badge{display:inline-flex;align-items:center;gap:6px;border:1px solid rgba(255,255,255,.2);border-radius:999px;padding:4px 8px;background:rgba(255,255,255,.08);font-weight:800}
+</style>
+
+
+<!-- LSPANEL MASTER FIX v3.7.1 — robust injector -->
+<script id="lspanel-masterfix-js">
+(function(){
+  // helpers
+  const $ = (q,r=document)=>r.querySelector(q);
+  const $$ = (q,r=document)=>Array.from(r.querySelectorAll(q));
+  function setLS(k,v){ try{ localStorage.setItem(k,String(v)); }catch(_){ } }
+  function getNum(k,d){ try{ const v=localStorage.getItem(k); return v==null? d : parseFloat(v); }catch(_){ return d; } }
+  function getFlag(k,d){ try{ const v=localStorage.getItem(k); return v==null? d : v==='1'; }catch(_){ return d; } }
+
+  // defaults (perf + atom)
+  const DEF = { target:50, minS:96, minR:80, cap:360, dn:0.85, up:1.06 };
+  const KP  = {
+    en:'dual.perf.enable', tgt:'dual.perf.target', s:'dual.perf.minSingle', r:'dual.perf.minRing', cap:'dual.perf.maxCap', dn:'dual.perf.stepDown', up:'dual.perf.stepUp'
+  };
+  if(localStorage.getItem(KP.en)==null) setLS(KP.en,'1');
+  if(localStorage.getItem(KP.tgt)==null) setLS(KP.tgt, DEF.target);
+  if(localStorage.getItem(KP.s)==null)   setLS(KP.s,   DEF.minS);
+  if(localStorage.getItem(KP.r)==null)   setLS(KP.r,   DEF.minR);
+  if(localStorage.getItem(KP.cap)==null) setLS(KP.cap, DEF.cap);
+  if(localStorage.getItem(KP.dn)==null)  setLS(KP.dn,  DEF.dn);
+  if(localStorage.getItem(KP.up)==null)  setLS(KP.up,  DEF.up);
+  if(localStorage.getItem('dual.atom.count')==null) setLS('dual.atom.count', 160);
+  if(localStorage.getItem('dual.atom.orbit')==null) setLS('dual.atom.orbit', 0.74);
+  if(localStorage.getItem('dual.atom.glow')==null)  setLS('dual.atom.glow',  0.38);
+  if(localStorage.getItem('dual.ui.bloom')==null)   setLS('dual.ui.bloom',   0);
+  document.body.setAttribute('data-orb-solid','off');
+
+  function panel(){
+    return $('#lsPanel') || $('#lsModal .ls-panel') || $('.ls-panel') || $('.panel-ls') || $('.settings-panel');
+  }
+
+  function ensureSection(){
+    const p = panel();
+    if(!p || $('#perfControlsV371')) return;
+    const tgt=getNum(KP.tgt,DEF.target), ms=getNum(KP.s,DEF.minS), mr=getNum(KP.r,DEF.minR), cap=getNum(KP.cap,DEF.cap), dn=getNum(KP.dn,DEF.dn), up=getNum(KP.up,DEF.up), en=getFlag(KP.en,true);
+    const sec = document.createElement('section'); sec.id='perfControlsV371';
+    sec.innerHTML = `
+      <div class="section-title">Desempenho (FPS Target)</div>
+      <div id="perfHud">
+        <div class="stats">
+          <span class="badge">FPS: <strong id="hudFps">—</strong></span>
+          <span class="badge">Meta: <strong id="hudTarget">${tgt}</strong></span>
+        </div>
+        <button id="perfEnable" class="pill-btn ${en?'on':''}">${en?'Auto':'Manual'}</button>
+      </div>
+      <div class="line">
+        <label>Meta de FPS</label>
+        <div><input id="fpsTarget" type="range" min="30" max="60" step="1" value="${tgt}" /><output id="fpsTargetOut">${tgt}</output></div>
+      </div>
+      <div class="line">
+        <label>Min (single)</label>
+        <div><input id="minSingle" type="range" min="48" max="160" step="2" value="${ms}" /><output id="minSingleOut">${ms}</output></div>
+      </div>
+      <div class="line">
+        <label>Min por anel</label>
+        <div><input id="minRing" type="range" min="48" max="160" step="2" value="${mr}" /><output id="minRingOut">${mr}</output></div>
+      </div>
+      <div class="line">
+        <label>Máximo</label>
+        <div><input id="maxCap" type="range" min="160" max="680" step="10" value="${cap}" /><output id="maxCapOut">${cap}</output></div>
+      </div>
+      <div class="line">
+        <label>Passo Reduzir</label>
+        <div><input id="stepDn" type="range" min="0.70" max="0.95" step="0.01" value="${dn}" /><output id="stepDnOut">${dn.toFixed(2)}</output></div>
+      </div>
+      <div class="line">
+        <label>Passo Aumentar</label>
+        <div><input id="stepUp" type="range" min="1.01" max="1.15" step="0.01" value="${up}" /><output id="stepUpOut">${up.toFixed(2)}</output></div>
+      </div>
+      <div class="section-title">Partículas do Átomo — SAFE</div>
+      <div class="line">
+        <label>Quantidade</label>
+        <div><input id="safe-count" type="range" min="48" max="220" step="4" value="${getNum('dual.atom.count',160)}" /><output id="safe-count-out">${getNum('dual.atom.count',160)}</output></div>
+      </div>
+      <div class="line">
+        <label>Órbita</label>
+        <div><input id="safe-orbit" type="range" min="0.60" max="0.86" step="0.01" value="${getNum('dual.atom.orbit',0.74)}" /><output id="safe-orbit-out">${getNum('dual.atom.orbit',0.74).toFixed(2)}</output></div>
+      </div>
+      <div class="line">
+        <label>Glow</label>
+        <div><input id="safe-glow" type="range" min="0.00" max="1.00" step="0.01" value="${getNum('dual.atom.glow',0.38)}" /><output id="safe-glow-out">${getNum('dual.atom.glow',0.38).toFixed(2)}</output></div>
+      </div>
+    `;
+    p.prepend(sec);
+
+    // binds
+    function bindR(id, k, fmt=(v)=>v){
+      const el = $('#'+id), out=$('#'+id+'Out'); if(!el) return;
+      el.addEventListener('input', ()=>{ const val=parseFloat(el.value); out && (out.textContent=fmt(val)); setLS(k, val); $('#hudTarget') && (id==='fpsTarget') && ($('#hudTarget').textContent=String(val)); });
+    }
+    bindR('fpsTarget', KP.tgt);
+    bindR('minSingle', KP.s);
+    bindR('minRing',   KP.r);
+    bindR('maxCap',    KP.cap);
+    bindR('stepDn',    KP.dn, (v)=>v.toFixed(2));
+    bindR('stepUp',    KP.up, (v)=>v.toFixed(2));
+
+    ['safe-count','safe-orbit','safe-glow'].forEach(id=>{
+      const el=$('#'+id), out=$('#'+id+'-out'); el && el.addEventListener('input', ()=>{ out && (out.textContent = id==='safe-count'? el.value : parseFloat(el.value).toFixed(2)); setLS(el.id==='safe-count'?'dual.atom.count': el.id==='safe-orbit'?'dual.atom.orbit':'dual.atom.glow', el.value); });
+    });
+
+    const enBtn = $('#perfEnable'); enBtn && enBtn.addEventListener('click', ()=>{
+      const now=!enBtn.classList.contains('on'); enBtn.classList.toggle('on',now); enBtn.textContent = now? 'Auto':'Manual'; setLS(KP.en, now?'1':'0');
+    });
+
+    // Live HUD FPS
+    let L=performance.now(), F=0;
+    function hudTick(t){ F++; if(t-L>=1000){ const fps=F; F=0; L=t; $('#hudFps') && ($('#hudFps').textContent=fps); } requestAnimationFrame(hudTick); }
+    requestAnimationFrame(hudTick);
+  }
+
+  // robust triggers
+  function bind(){
+    // when LS opens
+    const btn = document.getElementById('btnLS') || [...document.querySelectorAll('button,[role="button"]')].find(b=>/ls|painel|config|settings/i.test((b.textContent||'')+(b.id||'')+(b.className||'')));
+    if(btn && !btn.dataset._masterfix){ btn.dataset._masterfix='1'; btn.addEventListener('click', ()=> setTimeout(ensureSection, 120), {passive:true}); }
+    // also try on boot and on modal toggle
+    setTimeout(ensureSection, 300);
+    document.addEventListener('ls:disabled-changed', ()=> setTimeout(ensureSection, 120));
+    document.getElementById('arch-frame')?.addEventListener('load', ()=> setTimeout(ensureSection, 200));
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', bind); else bind();
+})();
+</script>
+
+
+<script id="hdpro-override-js">
+
+// === HD•PRO Override (Dual UNO) ===================================
+(function(){
+  const $ = (s, r=document) => r.querySelector(s);
+  const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
+  const on = (el, ev, fn) => el && el.addEventListener(ev, fn);
+
+  function toast(msg, ms=1800){
+    let t = $('#hdToast'); 
+    if(!t){ t = document.createElement('div'); t.id='hdToast'; document.body.appendChild(t); }
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(t.__t); t.__t = setTimeout(()=>t.classList.remove('show'), ms);
+  }
+
+  // 1) Handle quase invisível para abrir/fechar LS panel (#brain)
+  function mountHandle(){
+    if($('#lsHandle')) return;
+    const btn = document.createElement('button');
+    btn.id = 'lsHandle';
+    btn.title = 'Abrir/fechar painel (LS)';
+    document.body.appendChild(btn);
+
+    function toggleBrain(){
+      const brain = $('#brain');
+      if(!brain){ toast('Painel LS não encontrado (#brain)'); return; }
+      brain.classList.toggle('hide');
+      btn.classList.toggle('on', !brain.classList.contains('hide'));
+    }
+    on(btn, 'click', toggleBrain);
+  }
+
+  // 2) Painel HD Pro dentro do #brain (LS Panel)
+  function mountHDPro(){
+    const brain = $('#brain .popover') || $('#brain');
+    if(!brain || brain.__hdproMounted) return;
+    brain.__hdproMounted = true;
+
+    // Secção base
+    const sec = document.createElement('section');
+    sec.className = 'hdpro-sec';
+    sec.innerHTML = `
+      <div class="sec-hdr">
+        <h3>HD • Pro — Sistema</h3>
+        <button class="hd-btn ok" id="hdRefresh">Atualizar</button>
+      </div>
+
+      <div class="hdpro-grid">
+        <div class="hdpro-row">
+          <div>
+            <div class="hdpro-label">LocalStorage</div>
+            <div class="hdpro-meter"><div class="bar" id="barLS"></div></div>
+          </div>
+          <div class="hdpro-val" id="valLS">–</div>
+        </div>
+
+        <div class="hdpro-row">
+          <div>
+            <div class="hdpro-label">IndexedDB (estimado)</div>
+            <div class="hdpro-meter"><div class="bar" id="barIDB"></div></div>
+          </div>
+          <div class="hdpro-val" id="valIDB">–</div>
+        </div>
+
+        <div class="hdpro-row">
+          <div>
+            <div class="hdpro-label">Total (Storage API)</div>
+            <div class="hdpro-meter"><div class="bar" id="barTotal"></div></div>
+          </div>
+          <div class="hdpro-val" id="valTotal">–</div>
+        </div>
+
+        <div class="hdpro-actions">
+          <button class="hd-btn" id="btnToggleOrb">Ocultar opções avançadas do ORB/FPS</button>
+          <button class="hd-btn" id="btnImportFix">Importar HTML (corrigido)</button>
+          <input id="__fileImportHD" type="file" accept=".html,.htm" style="display:none" />
+          <button class="hd-btn danger" id="btnClearLS">Limpar LocalStorage</button>
+          <button class="hd-btn danger" id="btnClearIDB">Limpar IndexedDB</button>
+        </div>
+      </div>
+    `;
+    brain.appendChild(sec);
+
+    // 2a) Toggle avançados ORB/FPS
+    on($('#btnToggleOrb', sec), 'click', ()=>{
+      const advSelectors = [
+        '[data-orb-adv]',
+        '#orbAdv', '.orb-adv', '.orb-advanced', '[data-orb-advanced]',
+        '#fpsPanel', '.fps-adv', '#orbControls', '.orb-controls'
+      ];
+      let toggled = 0;
+      advSelectors.forEach(sel => {
+        $$(sel).forEach(el => { 
+          el.classList.toggle('hdpro-adv-hidden'); 
+          toggled++;
+        });
+      });
+      toast(toggled ? 'Avançados ORB/FPS alternados' : 'Nenhum bloco avançado encontrado');
+    });
+
+    // 2b) Import corrigido (abre HTML local numa sessão dentro do app, fallback nova aba)
+    const fileInput = $('#__fileImportHD', sec);
+    on($('#btnImportFix', sec), 'click', ()=> fileInput && fileInput.click());
+    on(fileInput, 'change', (e)=>{
+      const file = e.target.files && e.target.files[0];
+      if(!file) return;
+      const url = URL.createObjectURL(file);
+      const name = file.name || 'arquivo.html';
+      // destino preferencial
+      const anchor = $('#sessionsAnchor') || $('#stackWrap') || $('#v-stack') || $('main');
+      if(anchor){
+        const wrap = document.createElement('div');
+        wrap.className = 'session';
+        wrap.innerHTML = `
+          <div class="hdr">
+            <span class="app-icon">${(name[0]||'W').toUpperCase()}</span>
+            <span class="title">${name}</span>
+            <div class="tools">
+              <button class="btn" data-act="min">Min</button>
+              <button class="btn" data-act="full">Full</button>
+              <button class="btn" data-act="close">Fechar</button>
+            </div>
+          </div>
+          <iframe src="${url}" referrerpolicy="no-referrer"></iframe>
+          <div class="resize-handle" title="Arraste para ajustar altura"></div>
+        `;
+        anchor.appendChild(wrap);
+        // Tools
+        on(wrap.querySelector('[data-act="min"]'), 'click', ()=> wrap.classList.toggle('min'));
+        on(wrap.querySelector('[data-act="full"]'), 'click', ()=> document.body.classList.toggle('session-full'));
+        on(wrap.querySelector('[data-act="close"]'), 'click', ()=> wrap.remove());
+        toast('HTML importado dentro do Stack');
+      }else{
+        window.open(url, '_blank', 'noopener');
+        toast('HTML aberto em nova aba');
+      }
+      e.target.value = '';
+    });
+
+    // 2c) Limpar LocalStorage
+    on($('#btnClearLS', sec), 'click', ()=>{
+      if(confirm('Limpar todo o LocalStorage deste domínio?')){
+        try { localStorage.clear(); toast('LocalStorage limpo'); updateMeters(true); }
+        catch(err){ console.error(err); toast('Erro ao limpar LocalStorage'); }
+      }
+    });
+
+    // 2d) Limpar IndexedDB (melhor esforço)
+    on($('#btnClearIDB', sec), 'click', async ()=>{
+      if(!confirm('Apagar bancos IndexedDB deste domínio?')) return;
+      try{
+        if(indexedDB.databases){
+          const dbs = await indexedDB.databases();
+          await Promise.all((dbs||[]).map(d => d && d.name ? new Promise((res)=>{
+            const req = indexedDB.deleteDatabase(d.name);
+            req.onsuccess = req.onerror = req.onblocked = ()=>res();
+          }) : Promise.resolve()));
+        }else{
+          // Sem enumerate: tente deletar bases comuns do app
+          const common = ['dual', 'uno', 'app', 'db', 'files', 'store'];
+          await Promise.all(common.map(n => new Promise((res)=>{
+            const req = indexedDB.deleteDatabase(n); req.onsuccess = req.onerror = req.onblocked = ()=>res();
+          })));
+        }
+        toast('IndexedDB: pedido de exclusão enviado'); updateMeters(true);
+      }catch(err){
+        console.error(err); toast('IndexedDB: não suportado/erro');
+      }
+    });
+
+    // 2e) Atualizar medidores
+    on($('#hdRefresh', sec), 'click', ()=> updateMeters(true));
+
+    async function estimateStorage(){
+      const est = (navigator.storage && navigator.storage.estimate) ? await navigator.storage.estimate() : {};
+      // est.usage (bytes) inclui IDB + Cache + etc (depende do UA)
+      // LS estimado manualmente (2 bytes por char em UTF-16)
+      let lsBytes = 0;
+      try{
+        for(let i=0;i<localStorage.length;i++){
+          const k = localStorage.key(i);
+          const v = localStorage.getItem(k);
+          lsBytes += 2*((k||'').length + (v||'').length);
+        }
+      }catch{}
+      // Experimento: idbBytes ~ usage - lsBytes (aprox)
+      const usage = est.usage || 0;
+      const quota = est.quota || 0;
+      const idbBytes = Math.max(0, usage - lsBytes);
+
+      return { lsBytes, idbBytes, usage, quota };
+    }
+
+    function fmt(bytes){
+      const u = ['B','KB','MB','GB','TB'];
+      let i=0, n=bytes;
+      while(n>=1024 && i<u.length-1){ n/=1024; i++; }
+      return `${n.toFixed( (i<=1)?0:1)} ${u[i]}`;
+    }
+
+    async function updateMeters(animateNumbers){
+      try{
+        const {lsBytes, idbBytes, usage, quota} = await estimateStorage();
+        const els = {
+          barLS: $('#barLS'), valLS: $('#valLS'),
+          barIDB: $('#barIDB'), valIDB: $('#valIDB'),
+          barTotal: $('#barTotal'), valTotal: $('#valTotal'),
+        };
+        const percent = (num, den) => (den>0)? Math.min(100, Math.round((num/den)*100)) : 0;
+        // Total can use quota as denominator; LS use typical 5MB baseline to visualize
+        const lsCap = 5*1024*1024; // 5MB
+        const pLS = percent(lsBytes, lsCap);
+        const pIDB = quota ? percent(idbBytes, quota) : 0;
+        const pTot = percent(usage, quota);
+
+        if(els.barLS) els.barLS.style.width = pLS + '%';
+        if(els.barIDB) els.barIDB.style.width = pIDB + '%';
+        if(els.barTotal) els.barTotal.style.width = pTot + '%';
+
+        const setNum = (el, val) => { if(el) el.textContent = val; };
+        if(animateNumbers){
+          animateCount( $('#valLS'), lsBytes );
+          animateCount( $('#valIDB'), idbBytes );
+          animateCount( $('#valTotal'), usage );
+        }else{
+          setNum( $('#valLS'), fmt(lsBytes) );
+          setNum( $('#valIDB'), fmt(idbBytes) );
+          setNum( $('#valTotal'), `${fmt(usage)} / ${quota?fmt(quota):'–'}` );
+        }
+      }catch(err){ console.error(err); }
+    }
+
+    function animateCount(el, bytes){
+      if(!el) return;
+      const target = bytes;
+      const start = parseFloat(el.getAttribute('data-last')||'0');
+      const startTime = performance.now();
+      const dur = 600;
+      function step(t){
+        const k = Math.min(1, (t - startTime)/dur);
+        const v = Math.round(start + (target-start)*k);
+        el.textContent = ( (k<1) ? (v + ' B') : (fmt(target)) );
+        if(k<1) requestAnimationFrame(step);
+        else el.setAttribute('data-last', String(target));
+      }
+      requestAnimationFrame(step);
+    }
+
+    updateMeters(false);
+    // Atualização periódica (leve)
+    sec.__interval = setInterval(()=> updateMeters(false), 2500);
+  }
+
+  // 3) Start
+  function boot(){
+    mountHandle();
+    mountHDPro();
+  }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+
+})();
+
+</script>
+<script id="ATOM_ENGINE_PATCH">
+(function(){
+  if (window.__ATOM_PATCH__) return; window.__ATOM_PATCH__ = true;
+  const ATOM_PALETTES = {
+    default : { core:'#7a5bff', ring:'#39ffb6', dust:'#8fd6ff', bg:'#0b0f14' },
+    dopamina: { core:'#ff2d7a', ring:'#ff77aa', dust:'#ffd1e2', bg:'#14080f' },
+    delta7  : { core:'#ffb300', ring:'#ff8400', dust:'#ffe0a6', bg:'#140f08' },
+    asc11   : { core:'#00e6ff', ring:'#39ffb6', dust:'#baf6ff', bg:'#0b0f14' },
+    quan    : { core:'#b347ff', ring:'#9d7aff', dust:'#e2ccff', bg:'#110b14' },
+    orionis : { core:'#00ffab', ring:'#00ffc9', dust:'#c8fff1', bg:'#08140f' },
+    lumenflux:{core:'#9fd3ff', ring:'#e7f0ff', dust:'#ffffff', bg:'#0c121a' },
+    vermiph : { core:'#ff6282', ring:'#ff3d5e', dust:'#ffc0cb', bg:'#14080b' }
+  };
+  const $=(s,r=document)=>r.querySelector(s);
+  const arc=$('.arch-circle'); if(!arc) return;
+  let fab=arc.querySelector('.arch-fab'); if(!fab){ fab=document.createElement('button'); fab.className='arch-fab'; fab.title='Trocar paleta do átomo'; fab.innerHTML='✦'; arc.appendChild(fab); }
+  let cvs=document.getElementById('atomCanvas'); if(!cvs){ cvs=document.createElement('canvas'); cvs.id='atomCanvas'; arc.appendChild(cvs); }
+  const ctx=cvs.getContext('2d');
+  const DPR=()=> (window.devicePixelRatio||1); let W=0,H=0,CX=0,CY=0;
+  function resize(){ const r=arc.getBoundingClientRect(); W=Math.floor(r.width); H=Math.floor(r.height);
+    const d=DPR(); cvs.width=Math.max(1,Math.floor(W*d)); cvs.height=Math.max(1,Math.floor(H*d)); cvs.style.width=W+'px'; cvs.style.height=H+'px'; ctx.setTransform(d,0,0,d,0,0); CX=W/2; CY=H/2;}
+  resize(); addEventListener('resize', resize);
+  const N=120, parts=[]; (function init(){ for(let i=0;i<N;i++){ const radius=0.18+Math.random()*0.34, speed=(Math.random()*0.6+0.2)*(Math.random()<.5?1:-1);
+    parts.push({phi:Math.random()*Math.PI*2,r:radius,s:speed,size:1+Math.random()*2,jitter:Math.random()*0.03}); } })();
+  let PALETTE=ATOM_PALETTES.asc11; function setAtomPalette(n){ PALETTE=ATOM_PALETTES[n]||ATOM_PALETTES.default; try{ fab.style.boxShadow=`0 0 0 1px ${PALETTE.core}55 inset, 0 10px 22px ${PALETTE.core}33`; }catch(_){} }
+  (function hookTheme(){ const map={dopamina:'dopamina',delta7:'delta7',asc11:'asc11',quan:'quan',orionis:'orionis',lumenflux:'lumenflux',vermiph:'vermiph'};
+    if(typeof window.setTheme==='function' && !window.__ATOM_WRAP_THEME__){ window.__ATOM_WRAP_THEME__=true; const orig=window.setTheme;
+      window.setTheme=function(type){ const r=orig.apply(this,arguments); setAtomPalette(map[type]||'default'); return r; };
+    } else { const th=document.body.getAttribute('data-theme'); setAtomPalette(th==='blue1'?'asc11':th==='medium'?'lumenflux':'default'); }
+  })();
+  const cycle=['asc11','dopamina','delta7','orionis','quan','lumenflux','vermiph']; let cidx=0; fab.addEventListener('click',()=>{ cidx=(cidx+1)%cycle.length; setAtomPalette(cycle[cidx]); });
+  function draw(){ ctx.clearRect(0,0,W,H); const m=Math.min(W,H);
+    const g=ctx.createRadialGradient(CX,CY,m*0.08,CX,CY,m*0.55); g.addColorStop(0,PALETTE.core+'22'); g.addColorStop(1,'transparent');
+    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(CX,CY,m*0.55,0,Math.PI*2); ctx.fill();
+    ctx.shadowColor=PALETTE.ring; ctx.shadowBlur=18; ctx.fillStyle=PALETTE.core; ctx.beginPath(); ctx.arc(CX,CY,m*0.06,0,Math.PI*2); ctx.fill(); ctx.shadowBlur=0;
+    ctx.strokeStyle=PALETTE.ring+'cc'; ctx.lineWidth=1.4; ctx.beginPath(); ctx.arc(CX,CY,m*0.28,0,Math.PI*2); ctx.stroke();
+    for(let i=0;i<parts.length;i++){ const p=parts[i]; p.phi+=(p.s*0.003); const rr=m*(0.14+p.r*0.42), x=CX+Math.cos(p.phi)*rr, y=CY+Math.sin(p.phi)*rr*(0.82+p.jitter*Math.sin(p.phi*3.0));
+      ctx.fillStyle=PALETTE.dust; ctx.globalAlpha=0.75; ctx.beginPath(); ctx.arc(x,y,p.size,0,Math.PI*2); ctx.fill(); } ctx.globalAlpha=1;
+    requestAnimationFrame(draw); } requestAnimationFrame(draw);
+})();
+</script>
+<script id="CHAT13_JS">
+(()=>{
+const CHAT_BACKEND = "openrouter";
+const OPENROUTER_CONF = {
+  model: (localStorage.getItem('dual.openrouter.model') || 'openai/gpt-4o-mini'),
+  endpoint: 'https://openrouter.ai/api/v1/chat/completions',
+  key: localStorage.getItem('dual.keys.openrouter') || ''
+};
+
+const BLOCKS = [
+  ["Sinal","Contextualize a intenção do usuário em 1 frase objetiva."],
+  ["Mapa","Liste 3-5 pontos-chave do problema."],
+  ["Hipóteses","Traga 3 hipóteses testáveis."],
+  ["Dados","Quais dados mínimos precisamos coletar?"],
+  ["Ações 10min","Aplique uma micro-ação que cabe em 10 minutos."],
+  ["Riscos","Alerte sobre 2 riscos ou armadilhas."],
+  ["Recursos","Sugira 3 recursos (apps, docs, pessoas)."],
+  ["Sequência","Desenhe a ordem ótima em 4 passos."],
+  ["Expansão","Mostre 2 variações criativas do caminho."],
+  ["Métrica","Defina 1 métrica simples de sucesso."],
+  ["Checkpoint","O que revisar em 24h?"],
+  ["Compromisso","Gere 1 compromisso curto e claro."],
+  ["Fecho","Feche com 1 frase que mantenha o pulso."]
+];
+
+function sanitize(md){
+  const esc = (s)=>s.replace(/[&<>]/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;' }[m]));
+  md = md.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+         .replace(/\*(.+?)\*/g,'<em>$1</em>')
+         .replace(/`([^`]+?)`/g,'<code>$1</code>')
+         .replace(/\[(.+?)\]\((https?:\/\/[^\s)]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
+  return md.split('\n').map(ln=>'<p>'+esc(ln)+'</p>').join('');
+}
+
+const feed = document.getElementById('chatFeed');
+function push(role, title, html){
+  const el = document.createElement('div');
+  el.className = `msg role-${role}`;
+  el.innerHTML = (title ? `<h5>${title}</h5>` : '') + (html||'');
+  feed.appendChild(el);
+  el.scrollIntoView({behavior:'smooth',block:'end'});
+}
+function pushBlock(title){
+  const el = document.createElement('div');
+  el.className = 'msg role-assistant';
+  el.innerHTML = `<h5>${title}</h5><div class="mut">…</div>`;
+  feed.appendChild(el);
+  el.scrollIntoView({behavior:'smooth',block:'end'});
+  return el;
+}
+
+async function callOpenRouter(messages){
+  if(!OPENROUTER_CONF.key){ throw new Error('Chave OpenRouter ausente (defina em localStorage: dual.keys.openrouter)'); }
+  const body = { model: OPENROUTER_CONF.model, messages, temperature: 0.7 };
+  const r = await fetch(OPENROUTER_CONF.endpoint, {
+    method:'POST',
+    headers:{
+      'Content-Type':'application/json',
+      'Authorization':`Bearer ${OPENROUTER_CONF.key}`,
+      'HTTP-Referer': location.origin,
+      'X-Title':'HUB UNO Chat13'
+    },
+    body: JSON.stringify(body)
+  });
+  if(!r.ok){ throw new Error('OpenRouter HTTP '+r.status); }
+  const j = await r.json();
+  return j.choices?.[0]?.message?.content || '';
+}
+
+async function chat13Pipeline(userText){
+  const baseSystem = "Você é o Chat13 do HUB UNO. Responda de forma breve, clara e aplicável para cada bloco.";
+  const baseMsgs = [{role:'system', content: baseSystem}, {role:'user', content: userText}];
+  for(const [title, instr] of BLOCKS){
+    const dom = pushBlock(title);
+    try{
+      const content = await callOpenRouter([
+        ...baseMsgs,
+        {role:'user', content: `Bloco: ${title}. Instrução: ${instr}.
+Formate com frases curtas, listas quando fizer sentido, e sem rodeios.`}
+      ]);
+      dom.innerHTML = `<h5>${title}</h5>${sanitize(content)}`;
+    }catch(e){
+      dom.innerHTML = `<h5>${title}</h5><p class="mut">[erro: ${e.message}]</p>`;
+    }
+  }
+}
+
+const input = document.getElementById('chatInput');
+document.getElementById('chatSend').addEventListener('click', async ()=>{
+  const text = (input.value||'').trim();
+  if(!text) return;
+  push('user','Você', sanitize(text));
+  input.value = ''; input.focus();
+  try{ await chat13Pipeline(text); }
+  catch(e){ push('assistant','Erro', `<p class="mut">${e.message}</p>`); }
+});
+
+input.addEventListener('keydown',(e)=>{
+  if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); document.getElementById('chatSend').click(); }
+});
+
+const pulse = document.getElementById('chatPulse');
+function setPulseSpeed(fast){ pulse.style.setProperty('animation-duration', fast?'1.6s':'2.8s'); }
+input.addEventListener('focus', ()=>setPulseSpeed(true));
+input.addEventListener('blur',  ()=>setPulseSpeed(false));
+
+push('assistant','Pronto','<p>Chat 13-Blocos iniciado. Escreva sua intenção e aperte <strong>Enviar</strong>.</p>');
+})();
+</script>
 </body></html>
