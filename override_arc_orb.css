@@ -1,0 +1,22 @@
+
+/* ARC ORB Square Fade Override */
+#orbWrap, #orbWrap * {
+  background: transparent !important;
+}
+.arch-circle > #arch-frame,
+.arch-circle > iframe#arch-frame {
+  background: #0b0f14 !important;
+}
+.arch-circle::after{
+  content:"";
+  position:absolute; inset:0;
+  border-radius:50%;
+  background: var(--arch-overlay, transparent);
+  mix-blend-mode: overlay;
+  pointer-events:none;
+  z-index: 6;
+  -webkit-mask-image: radial-gradient(circle at 50% 50%, rgba(0,0,0,1) 62%, rgba(0,0,0,0) 86%);
+          mask-image: radial-gradient(circle at 50% 50%, rgba(0,0,0,1) 62%, rgba(0,0,0,0) 86%);
+  opacity:.35;
+  transition: opacity .25s ease;
+}
