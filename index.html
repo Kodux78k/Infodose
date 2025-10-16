@@ -1621,7 +1621,30 @@ html, body { overscroll-behavior-y: contain; }
   transition: opacity .25s ease;
 }
 </style>
-
+<style id="ARCH_FAB_ROUND_FIX">
+.arch-circle{
+  border-radius:50% !important;
+  overflow:hidden !important;
+  -webkit-clip-path: circle(50% at 50% 50%); clip-path: circle(50% at 50% 50%);
+  -webkit-mask-image: radial-gradient(circle at 50% 50%, #000 99.9%, transparent 100%);
+          mask-image: radial-gradient(circle at 50% 50%, #000 99.9%, transparent 100%);
+  isolation:isolate; contain: paint; transform: translateZ(0); will-change: transform;
+  background-clip: padding-box;
+}
+.arch-circle > .arch-fab{
+  background:none !important; mix-blend-mode: normal !important;
+  backface-visibility:hidden; -webkit-backface-visibility:hidden;
+}
+.arch-circle > .arch-fab::before{
+  content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none;
+  background:linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+  box-shadow:0 6px 16px rgba(0,0,0,.35), 0 0 0 1px rgba(255,255,255,.06) inset;
+}
+/* failsafe de recorte para camadas do orbe */
+.arch-circle > canvas, .arch-circle #orbWrap, .arch-circle .orb-slot, .arch-circle iframe#arch-frame{
+  -webkit-clip-path: circle(50% at 50% 50%); clip-path: circle(50% at 50% 50%);
+}
+</style>
 </head>
 <body>
   <!-- Splash screen displayed on initial load -->
@@ -1778,7 +1801,7 @@ html, body { overscroll-behavior-y: contain; }
               <div class="orb-glow" id="orbGlow"></div>
               <canvas id="particles"></canvas>
               <div class="ring"></div>
-              <div class="call" id="orbCall">Toque para pulsar · Nebula</div>
+              <div class="call" id="orbCall"></div>
             </div>
 
             <iframe id="arch-frame" title="Archetype Core" sandbox="allow-scripts" referrerpolicy="no-referrer" src="./archetypes/atlas.html"></iframe>
