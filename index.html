@@ -1591,6 +1591,110 @@ try{ document.documentElement.style.setProperty('--arch-overlay','rgba(64,158,25
   padding:10px 12px;border:var(--bd);background:rgba(255,255,255,.04);color:var(--fg)}
 .chat-composer .btn{white-space:nowrap}
 </style>
+
+  <link rel="manifest" href="./manifest.webmanifest" />
+<style id="fix-logs-titles-78k">
+/* Brain logs wrap */
+#brainLogs, .brain-logs, #logs {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-height: 1.35;
+  max-width: 100%;
+  max-height: 32vh;
+  overflow: auto;
+  background: rgba(0,0,0,.18);
+  border: 1px solid rgba(255,255,255,.10);
+  border-radius: 10px;
+  padding: 10px;
+  font: 12px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+/* App titles clamp */
+.app-card .app-title, [data-role="app-title"], .app-title {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+/* App subtitle/desc (opcional) */
+.app-card .mut, .app-desc {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Estado 78K visual + botão */
+html[data-78k="on"] .arch-circle { box-shadow: 0 0 0 2px rgba(255,215,0,.25), 0 18px 48px rgba(255,215,0,.20); }
+html[data-78k="on"] #orbCanvas, html[data-78k="on"] #particles { filter: saturate(1.2) brightness(1.04); }
+#btn78K.on { background: linear-gradient(90deg, #ffd700, #ff9f43); color:#0b0f14; border-color: transparent; }
+/* Orb layer fix (se ainda não tiver) */
+.arch-circle { position:relative; overflow:hidden; border-radius:50%; }
+#orbWrap { position:absolute; inset:6%; width:88%; height:88%; z-index:0; pointer-events:none; }
+#orbWrap canvas { pointer-events:none; display:block; border-radius:50%; }
+#arch-frame { position:absolute; inset:0; width:100%; height:100%; z-index:2; background:#0b0f14; border:0; }
+#arch-fadeCover { z-index:6; }
+</style>
+
+<style id="ls-fab-css">
+/* LS Panel quick actions (floating) */
+#lsModal .ls-fabbar{
+  position: fixed; right: clamp(12px, 2vw, 18px); bottom: clamp(12px, 2vh, 18px);
+  display:flex; flex-direction:column; gap:10px; z-index: 1602;
+}
+#lsModal .ls-fab{
+  width: 46px; height: 46px; border-radius: 50%; border:1px solid rgba(255,255,255,.18);
+  background: rgba(6,10,18,.85); color:#fff; display:grid; place-items:center; cursor:pointer;
+  box-shadow: 0 10px 26px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.06);
+  font-weight:900; font-size:18px; user-select:none;
+}
+#lsModal .ls-fab:hover{ background: rgba(12,18,28,.92) }
+#lsModal .ls-fab.refresh::after{ content:"\21BB"; }  /* ↻ */
+#lsModal .ls-fab.close::after{ content:"\00D7"; }    /* × */
+
+/* Globals editor */
+#lsGlobalsBox{
+  display:none; margin-top:10px; border:1px solid rgba(255,255,255,.12); border-radius:12px;
+  background: rgba(8,12,18,.55); padding:10px;
+}
+#lsGlobalsBox .row{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:space-between; }
+#lsGlobalsTxt{
+  width:100%; min-height:140px; resize:vertical; background:#0f1426; color:#E8F1F2;
+  border:1px solid rgba(255,255,255,.12); border-radius:10px; padding:10px; font:12px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+#lsGlobalsErr{ color:#ffbcbc; font-size:12px; min-height:16px; }
+#lsModal .ls-actions .ghost{ background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12); border-radius:10px; padding:6px 8px; cursor:pointer; }
+</style>
+
+<style id="ls-78k-css">
+/* Estado 78K row spacing */
+#ls78kBox{ margin-top:10px; border:1px solid rgba(255,255,255,.12); border-radius:12px; background:rgba(8,12,18,.4); padding:10px; }
+</style>
+<style id="hdr-fix-compact">
+:root{ --hdrH: 56px; }          /* antes: ~66px */
+header.mast{ height: var(--hdrH); min-height: var(--hdrH); padding-top: 0; padding-bottom: 0; }
+header.mast .title h1{ line-height: 1; }
+main{ padding-top: calc(var(--hdrH) + env(safe-area-inset-top)); } /* já usava isso; reafirma */
+</style>
+<style id="ls-fab-css-v2">
+#lsFabLayer{
+  position: fixed; right: clamp(12px, 2vw, 18px); bottom: clamp(12px, 2vh, 18px);
+  display: none; flex-direction: column; gap: 10px; z-index: 1700;
+}
+#lsModal.open ~ #lsFabLayer{ display: flex; }
+#lsFabLayer .ls-fab{
+  width: 48px; height: 48px; border-radius: 50%;
+  border: 1px solid rgba(255,255,255,.18);
+  background: rgba(6,10,18,.88); color:#fff; display:grid; place-items:center; cursor:pointer;
+  box-shadow: 0 10px 26px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.06);
+  font-weight:900; font-size:18px; user-select:none;
+}
+#lsFabLayer .ls-fab:hover{ background: rgba(12,18,28,.95) }
+#lsFabRefresh::after{ content:"\21BB"; } /* ↻ */
+#lsFabClose::after{ content:"\00D7"; }   /* × */
+</style>
 </head>
 <body>
   <!-- Splash screen displayed on initial load -->
@@ -1615,6 +1719,8 @@ try{ document.documentElement.style.setProperty('--arch-overlay','rgba(64,158,25
     <div class="title">
       <h1>HUB UNO</h1>
       <small>Dual · Trinity</small>
+      <!-- PATCH: Badge indicating 78K is active; hidden by default -->
+      <span id="badge78k" style="display:none;margin-left:8px;font-size:0.75rem;color:#f5f7ff;" title="78K ativo">⚡ 78K ativo</span>
     </div>
     <button class="ib fx-trans fx-press ring" id="btnDownload" title="Baixar HTML">
 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -1668,7 +1774,7 @@ try{ document.documentElement.style.setProperty('--arch-overlay','rgba(64,158,25
   </svg>
   <span class="ripple"></span>
 </button>
-  </header>
+</header>
 
   <!-- Âncora para sessões abertas quando o usuário optar por abrir dentro da página -->
   <section id="sessionsAnchor"></section>
@@ -1723,7 +1829,20 @@ try{ document.documentElement.style.setProperty('--arch-overlay','rgba(64,158,25
   <polyline points="15 18 9 12 15 6" stroke="url(#g5)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
             <span class="ripple"></span></button>
-            <select id="arch-select" title="Escolher arquétipo"><option value="./archetypes3d/value="./archetypes3d/atlas.html">atlas.html</option><option value="./archetypes3d/value="./archetypes3d/nova.html">nova.html</option><option value="./archetypes3d/value="./archetypes3d/vitalis.html">vitalis.html</option><option value="./archetypes3d/value="./archetypes3d/pulse.html">pulse.html</option><option value="./archetypes3d/value="./archetypes3d/artemis.html">artemis.html</option><option value="./archetypes3d/value="./archetypes3d/serena.html">serena.html</option><option value="./archetypes3d/value="./archetypes3d/kaos.html">kaos.html</option><option value="./archetypes3d/value="./archetypes3d/genus.html">genus.html</option><option value="./archetypes3d/value="./archetypes3d/lumine.html">lumine.html</option><option value="./archetypes3d/value="./archetypes3d/rhea.html">rhea.html</option><option value="./archetypes3d/value="./archetypes3d/solus.html">solus.html</option><option value="./archetypes3d/value="./archetypes3d/aion.html">aion.html</option></select>
+            <select id="arch-select" title="Escolher arquétipo">
+  <option value="./archetypes/atlas.html">atlas.html</option>
+  <option value="./archetypes/nova.html">nova.html</option>
+  <option value="./archetypes/vitalis.html">vitalis.html</option>
+  <option value="./archetypes/pulse.html">pulse.html</option>
+  <option value="./archetypes/artemis.html">artemis.html</option>
+  <option value="./archetypes/serena.html">serena.html</option>
+  <option value="./archetypes/kaos.html">kaos.html</option>
+  <option value="./archetypes/genus.html">genus.html</option>
+  <option value="./archetypes/lumine.html">lumine.html</option>
+  <option value="./archetypes/rhea.html">rhea.html</option>
+  <option value="./archetypes/solus.html">solus.html</option>
+  <option value="./archetypes/aion.html">aion.html</option>
+</select>
             <button class="btn fx-trans fx-press ring" id="arch-next" title="Próximo">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
 
@@ -2332,7 +2451,7 @@ try{ document.documentElement.style.setProperty('--arch-overlay','rgba(64,158,25
           <div class="card fx-trans fx-lift" style="display:block">
             <div style="font-weight:800">Logs</div>
             <div class="mut" style="font-size:11px;margin-bottom:4px">Eventos recentes</div>
-            <pre id="logs" style="margin:0;font:12px/1.4 ui-monospace,monospace;color:var(--mut);max-height:140px;overflow:auto"></pre>
+            <pre id="logs" style="margin:0;font:12px/1.4 ui-monospace,monospace;color:var(--mut);max-height:140px;overflow:auto;white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere"></pre>
           </div>
           </div>
       </div>
@@ -2679,15 +2798,23 @@ try{ document.documentElement.style.setProperty('--arch-overlay','rgba(64,158,25
           LS.set('infodose:voices', saved);
         }
         archList.forEach(name => {
+          // Cria um acordeão (detalhes) para cada arquétipo. O nome sem extensão aparece no cabeçalho.
+          const detailsEl = document.createElement('details');
+          detailsEl.className = 'voice-accordion';
+          const summary = document.createElement('summary');
+          const baseName = name.replace(/\.html$/i, '');
+          summary.textContent = baseName.charAt(0).toUpperCase() + baseName.slice(1);
+          summary.style.cursor = 'pointer';
+          summary.style.fontWeight = '700';
+          summary.style.marginBottom = '4px';
+          detailsEl.appendChild(summary);
+          // Contêiner para o seletor de voz e botão de teste
           const row = document.createElement('div');
           row.style.display = 'flex';
           row.style.alignItems = 'center';
           row.style.gap = '8px';
           row.style.flexWrap = 'wrap';
-          const label = document.createElement('span');
-          label.textContent = name;
-          label.style.minWidth = '70px';
-          label.style.fontWeight = '700';
+          // Seletor de voz
           const sel = document.createElement('select');
           sel.className = 'input ring';
           sel.style.maxWidth = '220px';
@@ -2702,23 +2829,26 @@ try{ document.documentElement.style.setProperty('--arch-overlay','rgba(64,158,25
             saved[name] = sel.value;
             LS.set('infodose:voices', saved);
           };
+          // Botão de teste
           const btnTest = document.createElement('button');
           btnTest.className = 'btn fx-trans fx-press ring';
           btnTest.textContent = 'Teste';
-          const rp = document.createElement('span'); rp.className = 'ripple'; btnTest.appendChild(rp);
+          const rp = document.createElement('span');
+          rp.className = 'ripple';
+          btnTest.appendChild(rp);
           addRipple(btnTest);
           btnTest.onclick = () => {
-            const utter = new SpeechSynthesisUtterance(`Olá, eu sou ${name}`);
+            const utter = new SpeechSynthesisUtterance(`Olá, eu sou ${baseName}`);
             const voiceName = saved[name] || sel.value;
             const voice = voices.find(v => v.name === voiceName);
             if (voice) utter.voice = voice;
             speechSynthesis.cancel();
             speechSynthesis.speak(utter);
           };
-          row.appendChild(label);
           row.appendChild(sel);
           row.appendChild(btnTest);
-          wrap.appendChild(row);
+          detailsEl.appendChild(row);
+          wrap.appendChild(detailsEl);
         });
       }
       populateVoices();
@@ -5475,8 +5605,9 @@ main .row > * + * { margin-top: .5rem; }
         <label for="lsImportFile" style="display:inline-block"><button type="button">Importar</button></label>
         <input id="lsImportFile" type="file" accept="application/json" hidden>
         <button id="lsClearDisabled">Limpar desativados</button>
-        <button id="lsClose">Fechar</button>
-      </div>
+        <!-- PATCH: Toggle 78K within LS Panel -->
+        <button id="lsToggle78k" aria-pressed="false" title="Ativar/Desativar estado 78K">⚡ 78K: OFF</button>
+        <button id="lsClose">Fechar</button></div>
     </div>
 
     <details class="presets" open>
@@ -6898,4 +7029,226 @@ push('assistant','Pronto','<p>Chat 13-Blocos iniciado. Escreva sua intenção e 
 </script>
 <!-- === /UNO • ORB dos Arquétipos (Injected) === -->
 
-</body></html>
+<script id="BOOT_ORDER_ORCHESTRATOR">
+(function(){
+  // Deduplicate style/script tags by id and ensure final patch order
+  try{
+    const ORDER = [
+      'blue1Theme','customStyle','multiagent-styles','patch-blue1-theme',
+      'overlay-defaults','ls-panel-css','show-app-title-css',
+      'overlay-css-unify','overlay-guardian-css','orb-slot-css',
+      'hdpro-override','ATOM_UI_PATCH','OVERLAY_BG_ONLY','ARCH_FAB_ROUND_FIX'
+    ];
+    const seen = new Set();
+    // Remove duplicate style/script tags with same id (keep last)
+    ['style','script'].forEach(tag=>{
+      const els = Array.from(document.querySelectorAll(tag+'[id]'));
+      for (let i=0;i<els.length;i++){
+        const id = els[i].id;
+        const dups = els.filter(e=>e.id===id);
+        if (dups.length>1){
+          dups.slice(0, -1).forEach(x=>x.parentNode && x.parentNode.removeChild(x));
+        }
+      }
+    });
+    // Re-append in canonical order near end of HEAD to lock cascade
+    const head = document.head || document.querySelector('head');
+    if (head){
+      ORDER.forEach(id=>{
+        const el = document.getElementById(id);
+        if (el) head.appendChild(el);
+      });
+    }
+  }catch(e){}
+
+  // Service Worker updater (only when using external sw.js)
+  if ('serviceWorker' in navigator){
+    window.addEventListener('load', async () => {
+      try{
+        const reg = await navigator.serviceWorker.register('./sw.js', {scope:'./'});
+        // Ask for update check on load
+        try{ reg.update(); }catch{}
+        // Auto-reload on new SW activation (once)
+        let refreshing = false;
+        navigator.serviceWorker.addEventListener('controllerchange', function(){
+          if (refreshing) return; refreshing = true; location.reload();
+        });
+        // If there's a waiting worker, tell it to skipWaiting
+        if (reg.waiting){
+          reg.waiting.postMessage({type:'SKIP_WAITING'});
+        }
+        // Listen for waiting in future
+        reg.addEventListener('updatefound', () => {
+          const nw = reg.installing;
+          nw && nw.addEventListener('statechange', () => {
+            if (nw.state === 'installed' && navigator.serviceWorker.controller){
+              nw.postMessage({type:'SKIP_WAITING'});
+            }
+          });
+        });
+        // Handle message from SW
+        navigator.serviceWorker.addEventListener('message', evt => {
+          if (evt && evt.data && evt.data.type === 'RELOAD') location.reload();
+        });
+      }catch(e){/* ignore */}
+    });
+  }
+})();
+</script>
+  <!-- PATCH: 78K toggle for LS Panel and badge -->
+  <script id="patch-ls-toggle-78k">
+  (function(){
+    const LSKEY='dual.state.78k';
+    function isOn(){ return !!localStorage.getItem(LSKEY); }
+    function setUI(on){
+      const lsBtn=document.getElementById('lsToggle78k');
+      if(lsBtn){
+        lsBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+        lsBtn.textContent = on ? '⚡ 78K: ON' : '⚡ 78K: OFF';
+        if(lsBtn.classList) lsBtn.classList.toggle('prime', !!on);
+      }
+      const badge=document.getElementById('badge78k');
+      if(badge){
+        badge.style.display = on ? 'inline' : 'none';
+      }
+    }
+    function enable(){
+      localStorage.setItem(LSKEY,'1');
+      try{ if(window.Ativar78K) window.Ativar78K(); }catch(e){}
+      setUI(true);
+    }
+    function disable(){
+      localStorage.removeItem(LSKEY);
+      try{ document.documentElement.style.removeProperty('--arch-overlay'); }catch(e){}
+      setUI(false);
+    }
+    function toggle(){ isOn() ? disable() : enable(); }
+    document.addEventListener('DOMContentLoaded', function(){
+      const btn=document.getElementById('lsToggle78k');
+      if(btn){ btn.addEventListener('click', function(){ toggle(); }); }
+      setUI(isOn());
+    });
+    window.addEventListener('storage', function(ev){
+      if(ev.key===LSKEY){
+        setUI(!!ev.newValue);
+      }
+    });
+  })();
+  </script>
+
+  <script defer src="./core/config-loader.js"></script>
+<script id="state-78k-js">
+(function(){
+  function set78K(on){
+    var html = document.documentElement;
+    if (on) html.setAttribute('data-78k','on'); else html.removeAttribute('data-78k');
+    try { localStorage.setItem('uno:78k', on ? '1':'0'); } catch(e){}
+    // Boost no ORB se disponível
+    if (window.ORB && typeof window.ORB.setBoost === 'function') {
+      window.ORB.setBoost(on ? 1.8 : 1.0);
+    } else {
+      // fallback: reforça overlay quando 78K ligado
+      var cur = parseFloat(getComputedStyle(html).getPropertyValue('--arch-overlay-strength')) || 12;
+      var str = on ? Math.max(cur, 16) : 12;
+      html.style.setProperty('--arch-overlay-strength', str + '%');
+    }
+    var b = document.getElementById('btn78K'); if (b) b.classList.toggle('on', !!on);
+  }
+  var btn = document.getElementById('btn78K');
+  if (btn){
+    set78K((localStorage.getItem('uno:78k')||'0') === '1');
+    btn.addEventListener('click', function(){ set78K(!(document.documentElement.getAttribute('data-78k')==='on')); });
+  }
+
+  // brainLog helper
+  window.brainLog = function(msg, type){
+    try {
+      var box = document.getElementById('brainLogs') || document.getElementById('logs');
+      if (!box) return;
+      var t = new Date().toLocaleTimeString();
+      var tag = type ? ('['+String(type).toUpperCase()+'] ') : '';
+      var line = '['+t+'] ' + tag + String(msg);
+      box.textContent = (line + '
+' + box.textContent).slice(0, 16000);
+    } catch(e){}
+  };
+
+  // Normalizar títulos de apps (upload/local)
+  document.querySelectorAll('[data-role="app-card"], .app-card').forEach(function(card){
+    var t = card.querySelector('.app-title');
+    if (!t) return;
+    var raw = t.getAttribute('title') || t.textContent || '';
+    t.textContent = String(raw).trim();
+  });
+})();
+</script>
+
+<script id="state-78k-nobutton">
+(function(){
+  function toggle78K(){
+    var on = document.documentElement.getAttribute('data-78k') === 'on';
+    var set = function(v){
+      if (v) document.documentElement.setAttribute('data-78k','on');
+      else document.documentElement.removeAttribute('data-78k');
+      try { localStorage.setItem('uno:78k', v ? '1':'0'); } catch(e){}
+      if (window.ORB && typeof window.ORB.setBoost==='function'){ window.ORB.setBoost(v?1.8:1.0); }
+    };
+    set(!on);
+  }
+  // boot from LS
+  try { if ((localStorage.getItem('uno:78k')||'0')==='1') document.documentElement.setAttribute('data-78k','on'); } catch(e){}
+
+  // Double-click/tap on arch circle toggles 78K
+  var circle = document.getElementById('archCircle') || document.querySelector('.arch-circle');
+  if (circle){
+    circle.addEventListener('dblclick', function(e){ e.preventDefault(); toggle78K(); }, {passive:false});
+  }
+
+  // Keyboard shortcut: Shift+K
+  window.addEventListener('keydown', function(e){
+    if ((e.key==='K' || e.key==='k') && e.shiftKey){ e.preventDefault(); toggle78K(); }
+  });
+})();
+</script>
+
+
+<script id="ls-78k-js">
+(function(){
+  function apply78K(on){
+    var html = document.documentElement;
+    if(on) html.setAttribute('data-78k','on'); else html.removeAttribute('data-78k');
+    try { localStorage.setItem('uno:78k', on ? '1':'0'); } catch(e){}
+    if (window.ORB && typeof window.ORB.setBoost==='function'){ window.ORB.setBoost(on?1.8:1.0); }
+    else {
+      var cur = parseFloat(getComputedStyle(html).getPropertyValue('--arch-overlay-strength')) || 12;
+      var str = on ? Math.max(cur, 16) : 12;
+      html.style.setProperty('--arch-overlay-strength', str + '%');
+    }
+    var t = document.getElementById('ls78kToggle'); if (t) t.checked = !!on;
+  }
+  // boot
+  var toggle = document.getElementById('ls78kToggle');
+  if (toggle){
+    var on = (localStorage.getItem('uno:78k')||'0')==='1';
+    apply78K(on);
+    toggle.addEventListener('change', function(){ apply78K(toggle.checked); });
+  }
+  // expose minimal API
+  window.UNO = window.UNO || {}; window.UNO.State78K = { set: apply78K };
+})();
+</script>
+
+<div id="lsFabLayer"><button id="lsFabRefresh" class="ls-fab" title="Recarregar"></button><button id="lsFabClose" class="ls-fab" title="Fechar painel"></button></div>
+
+<script id="ls-fab-wire">
+(function(){
+  var modal = document.getElementById('lsModal');
+  var btnRefresh = document.getElementById('lsFabRefresh');
+  var btnClose = document.getElementById('lsFabClose');
+  if (btnRefresh){ btnRefresh.addEventListener('click', function(e){ e.preventDefault(); location.reload(); }); }
+  if (btnClose){ btnClose.addEventListener('click', function(e){ e.preventDefault(); if(modal){ modal.classList.remove('open'); modal.setAttribute('aria-hidden','true'); } }); }
+})();
+</script>
+
+</body>
+</html>
